@@ -1,0 +1,136 @@
+---
+// ConfirmDialog - Promise-based confirmation dialog
+---
+
+<dialog id="confirm-dialog" class="confirm-dialog">
+  <div class="confirm-inner">
+    <div class="confirm-icon">
+      <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+    </div>
+    <h3 id="confirm-title" class="text-lg font-display font-bold text-[var(--color-text-primary)] mt-3">¿Estás seguro?</h3>
+    <p id="confirm-message" class="text-sm text-[var(--color-text-secondary)] mt-1.5 text-center max-w-xs">Esta acción no se puede deshacer.</p>
+    <div class="confirm-actions">
+      <button type="button" id="confirm-cancel" class="confirm-btn-cancel">Cancelar</button>
+      <button type="button" id="confirm-accept" class="confirm-btn-accept">Eliminar</button>
+    </div>
+  </div>
+</dialog>
+
+<style>
+  .confirm-dialog {
+    background: var(--color-bg-surface);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 1.25rem;
+    padding: 0;
+    width: calc(100% - 2rem);
+    max-width: 24rem;
+    color: var(--color-text-primary);
+    box-shadow: 0 16px 64px oklch(0% 0 0 / 50%);
+  }
+
+  .confirm-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem 1.5rem 1.5rem;
+  }
+
+  .confirm-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 1rem;
+    background: oklch(from var(--color-danger) l c h / 12%);
+    color: var(--color-danger);
+  }
+
+  .confirm-actions {
+    display: flex;
+    gap: 0.75rem;
+    width: 100%;
+    margin-top: 1.5rem;
+  }
+
+  .confirm-btn-cancel {
+    flex: 1;
+    padding: 0.625rem 1rem;
+    border-radius: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    background: var(--color-bg-elevated);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border-subtle);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .confirm-btn-cancel:hover {
+    border-color: var(--color-border-accent);
+  }
+
+  .confirm-btn-accept {
+    flex: 1;
+    padding: 0.625rem 1rem;
+    border-radius: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    background: var(--color-danger);
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .confirm-btn-accept:hover {
+    filter: brightness(1.1);
+    box-shadow: 0 0 20px oklch(from var(--color-danger) l c h / 25%);
+  }
+</style>
+
+<script is:inline>
+  window.confirmAction = function(options = {}) {
+    return new Promise((resolve) => {
+      const dialog = document.getElementById('confirm-dialog');
+      const title = document.getElementById('confirm-title');
+      const message = document.getElementById('confirm-message');
+      const cancelBtn = document.getElementById('confirm-cancel');
+      const acceptBtn = document.getElementById('confirm-accept');
+
+      if (!dialog) { resolve(false); return; }
+
+      if (options.title) title.textContent = options.title;
+      if (options.message) message.textContent = options.message;
+      if (options.confirmText) acceptBtn.textContent = options.confirmText;
+      if (options.cancelText) cancelBtn.textContent = options.cancelText;
+
+      dialog.showModal();
+
+      function cleanup() {
+        cancelBtn.removeEventListener('click', onCancel);
+        acceptBtn.removeEventListener('click', onAccept);
+        dialog.removeEventListener('cancel', onCancel);
+      }
+
+      function onCancel() {
+        cleanup();
+        dialog.close();
+        resolve(false);
+      }
+
+      function onAccept() {
+        cleanup();
+        dialog.close();
+        resolve(true);
+      }
+
+      cancelBtn.addEventListener('click', onCancel);
+      acceptBtn.addEventListener('click', onAccept);
+      dialog.addEventListener('cancel', onCancel);
+    });
+  };
+</script>

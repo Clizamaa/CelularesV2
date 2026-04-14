@@ -1,0 +1,322 @@
+---
+import BaseLayout from '@/components/layout/BaseLayout.astro';
+import Header from '@/components/layout/Header.astro';
+import Badge from '@/components/ui/Badge.astro';
+import Button from '@/components/ui/Button.astro';
+import { prisma } from '@/lib/prisma';
+import { formatDate } from '@/lib/utils/format';
+
+const url = Astro.url;
+const q = url.searchParams.get('q') ?? '';
+const estado = url.searchParams.get('estado') ?? '';
+const page = Number(url.searchParams.get('page') ?? 1);
+const limit = 10;
+
+const where: any = {
+  ...(estado && { estado }),
+  ...(q && {
+    OR: [
+      { marca: { contains: q } },
+      { modelo: { contains: q } },
+      { serial: { contains: q } },
+      { imei: { contains: q } },
+    ],
+  }),
+};
+
+const [celulares, total] = await Promise.all([
+  prisma.celular.findMany({
+    where,
+    skip: (page - 1) * limit,
+    take: limit,
+    include: { asignacion: { include: { simcard: true } } },
+    orderBy: { createdAt: 'desc' },
+  }),
+  prisma.celular.count({ where }),
+]);
+
+const totalPages = Math.ceil(total / limit);
+const estados = ['', 'DISPONIBLE', 'ASIGNADO', 'MANTENIMIENTO', 'BAJA'];
+const estadoLabels: Record<string, string> = {
+  '': 'Todos',
+  DISPONIBLE: 'Disponibles',
+  ASIGNADO: 'Asignados',
+  MANTENIMIENTO: 'Mantenimiento',
+  BAJA: 'Baja',
+};
+---
+
+<BaseLayout title="Celulares — CelularES">
+  <Header
+    title="Celulares"
+    breadcrumbs={[{ label: 'Dashboard', href: '/' }, { label: 'Celulares' }]}
+  >
+    <Button href="/celulares/nuevo" variant="primary" size="sm">
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Nuevo Celular
+    </Button>
+    <button id="header-scan-btn" class="scan-trigger-btn" style="height:2.25rem; width:2.25rem;" title="Escanear código de barras">
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M3 5v-2h4"/><path d="M17 3h4v2"/><path d="M21 19v2h-4"/><path d="M7 21H3v-2"/><line x1="7" y1="8" x2="7" y2="16" stroke-width="2"/><line x1="10" y1="8" x2="10" y2="16"/><line x1="13" y1="8" x2="13" y2="16" stroke-width="2.5"/><line x1="16" y1="8" x2="16" y2="16"/></svg>
+    </button>
+  </Header>
+
+  <main class="p-6 lg:p-8 space-y-6 animate-fade-in">
+    <!-- Filters -->
+    <div class="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+      <div class="flex flex-wrap gap-2" id="filter-pills">
+        {estados.map((e) => (
+          <button
+            class={`filter-pill ${estado === e ? 'active' : ''}`}
+            data-estado={e}
+          >
+            {estadoLabels[e]}
+          </button>
+        ))}
+      </div>
+
+      <div class="flex gap-2 w-full sm:w-auto">
+        <div class="relative flex-1 sm:w-72">
+          <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input
+            type="text"
+            id="search-input"
+            placeholder="Buscar por marca, modelo, serial..."
+            value={q}
+            class="input-base pl-10 text-sm"
+          />
+        </div>
+        <button type="button" class="scan-trigger-btn" id="search-scan-btn" title="Buscar escaneando código">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M3 5v-2h4"/><path d="M17 3h4v2"/><path d="M21 19v2h-4"/><path d="M7 21H3v-2"/><line x1="7" y1="8" x2="7" y2="16" stroke-width="2"/><line x1="10" y1="8" x2="10" y2="16"/><line x1="13" y1="8" x2="13" y2="16" stroke-width="2.5"/><line x1="16" y1="8" x2="16" y2="16"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Results count -->
+    <p class="text-sm text-[var(--color-text-secondary)]">
+      {total} {total === 1 ? 'resultado' : 'resultados'}
+      {q && <span> para "<strong class="text-[var(--color-text-primary)]">{q}</strong>"</span>}
+    </p>
+
+    <!-- Table -->
+    <div class="card-surface overflow-hidden">
+      {celulares.length > 0 ? (
+        <div class="overflow-x-auto">
+          <table class="data-table" id="celulares-table">
+            <thead>
+              <tr>
+                <th data-sort="marca">Marca / Modelo</th>
+                <th data-sort="serial">Serial</th>
+                <th data-sort="imei">IMEI</th>
+                <th data-sort="estado">Estado</th>
+                <th>SIM</th>
+                <th>Funcionario</th>
+                <th class="text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {celulares.map((cel) => (
+                <tr data-id={cel.id}>
+                  <td>
+                    <div class="flex flex-col">
+                      <span class="font-medium text-[var(--color-text-primary)]">{cel.marca}</span>
+                      <span class="text-xs text-[var(--color-text-secondary)]">{cel.modelo}</span>
+                    </div>
+                  </td>
+                  <td class="font-mono text-sm text-[var(--color-text-secondary)]">{cel.serial}</td>
+                  <td class="font-mono text-sm text-[var(--color-text-secondary)]">{cel.imei}</td>
+                  <td><Badge status={cel.estado} size="sm" /></td>
+                  <td class="text-sm">
+                    {cel.asignacion?.simcard ? (
+                      <span class="text-[var(--color-text-primary)]">{cel.asignacion.simcard.numeroTelefono || cel.asignacion.simcard.numeroSimcard}</span>
+                    ) : (
+                      <span class="text-[var(--color-text-muted)]">—</span>
+                    )}
+                  </td>
+                  <td class="text-sm">
+                    {cel.asignacion?.funcionarioNombre ? (
+                      <span class="text-[var(--color-text-primary)]">{cel.asignacion.funcionarioNombre}</span>
+                    ) : (
+                      <span class="text-[var(--color-text-muted)]">Sin asignar</span>
+                    )}
+                  </td>
+                  <td>
+                    <div class="flex items-center justify-end gap-1">
+                      <a href={`/celulares/${cel.id}`} class="action-btn" title="Ver detalle">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      </a>
+                      <a href={`/celulares/${cel.id}?edit=true`} class="action-btn" title="Editar">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                      </a>
+                      <button class="action-btn action-btn-danger delete-btn" data-id={cel.id} data-name={`${cel.marca} ${cel.modelo}`} title="Eliminar">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div class="empty-state py-16">
+          <svg class="w-14 h-14 text-[var(--color-text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+          <p class="font-medium text-lg">No se encontraron celulares</p>
+          <p class="text-sm text-[var(--color-text-muted)]">
+            {q ? 'Intenta con otros términos de búsqueda' : 'Comienza agregando un nuevo celular'}
+          </p>
+          {!q && (
+            <Button href="/celulares/nuevo" variant="primary" size="sm" class="mt-2">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Nuevo Celular
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div class="flex items-center justify-between px-5 py-4 border-t border-[var(--color-border-subtle)]">
+          <p class="text-sm text-[var(--color-text-secondary)]">
+            Página {page} de {totalPages}
+          </p>
+          <div class="pagination" id="pagination">
+            <button class="pagination-btn" data-page={page - 1} disabled={page <= 1}>
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+              <button
+                class={`pagination-btn ${p === page ? 'active' : ''}`}
+                data-page={p}
+              >
+                {p}
+              </button>
+            ))}
+            <button class="pagination-btn" data-page={page + 1} disabled={page >= totalPages}>
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  </main>
+</BaseLayout>
+
+<style>
+  .action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.5rem;
+    color: var(--color-text-secondary);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .action-btn:hover {
+    background: var(--color-bg-elevated);
+    color: var(--color-text-primary);
+  }
+  .action-btn-danger:hover {
+    background: oklch(from var(--color-danger) l c h / 12%);
+    color: var(--color-danger);
+  }
+</style>
+
+<script>
+  // Search with debounce
+  const searchInput = document.getElementById('search-input') as HTMLInputElement;
+  let searchTimeout: ReturnType<typeof setTimeout>;
+
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        const url = new URL(window.location.href);
+        const value = searchInput.value.trim();
+        if (value) {
+          url.searchParams.set('q', value);
+        } else {
+          url.searchParams.delete('q');
+        }
+        url.searchParams.set('page', '1');
+        window.location.href = url.toString();
+      }, 400);
+    });
+  }
+
+  // Barcode scan → search
+  function handleScanSearch(value: string) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('q', value);
+    url.searchParams.set('page', '1');
+    window.location.href = url.toString();
+  }
+
+  document.getElementById('header-scan-btn')?.addEventListener('click', () => {
+    (window as any).openBarcodeScanner({ onScan: handleScanSearch });
+  });
+
+  document.getElementById('search-scan-btn')?.addEventListener('click', () => {
+    (window as any).openBarcodeScanner({ onScan: handleScanSearch });
+  });
+
+  // Filter pills
+  document.querySelectorAll('#filter-pills .filter-pill').forEach((pill) => {
+    pill.addEventListener('click', () => {
+      const estado = (pill as HTMLElement).dataset.estado ?? '';
+      const url = new URL(window.location.href);
+      if (estado) {
+        url.searchParams.set('estado', estado);
+      } else {
+        url.searchParams.delete('estado');
+      }
+      url.searchParams.set('page', '1');
+      window.location.href = url.toString();
+    });
+  });
+
+  // Pagination
+  document.querySelectorAll('#pagination .pagination-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const pageNum = (btn as HTMLElement).dataset.page;
+      if (!pageNum) return;
+      const url = new URL(window.location.href);
+      url.searchParams.set('page', pageNum);
+      window.location.href = url.toString();
+    });
+  });
+
+  // Delete buttons
+  document.querySelectorAll('.delete-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const el = btn as HTMLElement;
+      const id = el.dataset.id;
+      const name = el.dataset.name;
+
+      const confirmed = await (window as any).confirmAction({
+        title: '¿Eliminar celular?',
+        message: `Se eliminará permanentemente "${name}" y sus asignaciones.`,
+        confirmText: 'Eliminar',
+      });
+
+      if (!confirmed) return;
+
+      try {
+        const res = await fetch(`/api/celulares/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+
+        if (data.success) {
+          (window as any).showToast('Celular eliminado correctamente', 'success');
+          setTimeout(() => window.location.reload(), 800);
+        } else {
+          (window as any).showToast(data.error?.message || 'Error al eliminar', 'error');
+        }
+      } catch {
+        (window as any).showToast('Error de conexión', 'error');
+      }
+    });
+  });
+</script>

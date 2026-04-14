@@ -1,0 +1,415 @@
+---
+import BaseLayout from '@/components/layout/BaseLayout.astro';
+import Header from '@/components/layout/Header.astro';
+import Badge from '@/components/ui/Badge.astro';
+import Button from '@/components/ui/Button.astro';
+import { prisma } from '@/lib/prisma';
+import { formatDate, formatDateTime } from '@/lib/utils/format';
+
+const { id } = Astro.params;
+const editMode = Astro.url.searchParams.get('edit') === 'true';
+
+if (!id) return Astro.redirect('/celulares');
+
+const celular = await prisma.celular.findUnique({
+  where: { id },
+  include: {
+    asignacion: {
+      include: { simcard: true },
+    },
+  },
+});
+
+if (!celular) return Astro.redirect('/celulares');
+
+// Get assignment history (all assignments for this celular)
+const historial = await prisma.asignacion.findMany({
+  where: { celularId: id, activa: false },
+  include: { simcard: true },
+  orderBy: { fechaAsignacion: 'desc' },
+  take: 10,
+});
+
+const asignacionActiva = celular.asignacion?.activa ? celular.asignacion : null;
+
+// Dynamic marcas/modelos from DB
+const marcasDB = await prisma.marca.findMany({
+  include: { modelos: { orderBy: { nombre: 'asc' } } },
+  orderBy: { nombre: 'asc' },
+});
+
+const marcasJson = JSON.stringify(marcasDB.map(m => ({
+  id: m.id,
+  nombre: m.nombre,
+  modelos: m.modelos.map(mod => ({ id: mod.id, nombre: mod.nombre })),
+})));
+---
+
+<BaseLayout title={`${celular.marca} ${celular.modelo} — CelularES`}>
+  <Header
+    title={editMode ? 'Editar Celular' : `${celular.marca} ${celular.modelo}`}
+    breadcrumbs={[
+      { label: 'Dashboard', href: '/' },
+      { label: 'Celulares', href: '/celulares' },
+      { label: editMode ? 'Editar' : celular.modelo },
+    ]}
+  >
+    {!editMode && (
+      <div class="flex items-center gap-2">
+        <Button href={`/celulares/${id}?edit=true`} variant="secondary" size="sm">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Editar
+        </Button>
+      </div>
+    )}
+  </Header>
+
+  <main class="p-6 lg:p-8 animate-fade-in">
+    {editMode ? (
+      <!-- EDIT MODE -->
+      <form id="edit-form" class="max-w-4xl space-y-6" novalidate>
+        <section class="card-surface p-6 lg:p-8">
+          <h2 class="text-lg font-display font-bold mb-6 flex items-center gap-2">
+            <svg class="w-5 h-5 text-[var(--color-accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+            Datos del Equipo
+          </h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div class="flex flex-col gap-1.5">
+              <label for="marca" class="text-sm font-medium text-[var(--color-text-secondary)]">Marca *</label>
+              <select id="marca" name="marca" required class="input-base">
+                <option value="">— Seleccionar marca —</option>
+                {marcasDB.map((m) => (
+                  <option value={m.nombre} data-marca-id={m.id} selected={celular.marca === m.nombre}>{m.nombre}</option>
+                ))}
+              </select>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label for="modelo" class="text-sm font-medium text-[var(--color-text-secondary)]">Modelo *</label>
+              <select id="modelo" name="modelo" required class="input-base">
+                <option value="">— Seleccionar modelo —</option>
+                {marcasDB.find(m => m.nombre === celular.marca)?.modelos.map((mod) => (
+                  <option value={mod.nombre} selected={celular.modelo === mod.nombre}>{mod.nombre}</option>
+                ))}
+              </select>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label for="serial" class="text-sm font-medium text-[var(--color-text-secondary)]">Serial *</label>
+              <div class="flex gap-2">
+                <input id="serial" name="serial" value={celular.serial} required class="input-base flex-1" />
+                <button type="button" class="scan-trigger-btn" onclick="window.openBarcodeScanner({ targetField: 'serial' })" title="Escanear código de barras">
+                  <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M3 5v-2h4"/><path d="M17 3h4v2"/><path d="M21 19v2h-4"/><path d="M7 21H3v-2"/><line x1="7" y1="8" x2="7" y2="16" stroke-width="2"/><line x1="10" y1="8" x2="10" y2="16"/><line x1="13" y1="8" x2="13" y2="16" stroke-width="2.5"/><line x1="16" y1="8" x2="16" y2="16"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label for="imei" class="text-sm font-medium text-[var(--color-text-secondary)]">IMEI *</label>
+              <div class="flex gap-2">
+                <input id="imei" name="imei" value={celular.imei} maxlength="15" required class="input-base flex-1" inputmode="numeric" />
+                <button type="button" class="scan-trigger-btn" onclick="window.openBarcodeScanner({ targetField: 'imei' })" title="Escanear código de barras">
+                  <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M3 5v-2h4"/><path d="M17 3h4v2"/><path d="M21 19v2h-4"/><path d="M7 21H3v-2"/><line x1="7" y1="8" x2="7" y2="16" stroke-width="2"/><line x1="10" y1="8" x2="10" y2="16"/><line x1="13" y1="8" x2="13" y2="16" stroke-width="2.5"/><line x1="16" y1="8" x2="16" y2="16"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label for="estado" class="text-sm font-medium text-[var(--color-text-secondary)]">Estado</label>
+              <select id="estado" name="estado" class="input-base">
+                <option value="DISPONIBLE" selected={celular.estado === 'DISPONIBLE'}>Disponible</option>
+                <option value="ASIGNADO" selected={celular.estado === 'ASIGNADO'}>Asignado</option>
+                <option value="MANTENIMIENTO" selected={celular.estado === 'MANTENIMIENTO'}>Mantenimiento</option>
+                <option value="BAJA" selected={celular.estado === 'BAJA'}>Baja</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="mt-5">
+            <label for="observaciones" class="text-sm font-medium text-[var(--color-text-secondary)] block mb-1.5">Observaciones</label>
+            <textarea id="observaciones" name="observaciones" maxlength="500" class="input-base resize-none min-h-[5rem]">{celular.observaciones || ''}</textarea>
+          </div>
+        </section>
+
+        <div class="flex items-center justify-end gap-3">
+          <Button href={`/celulares/${id}`} variant="ghost">Cancelar</Button>
+          <Button type="submit" variant="primary" id="save-btn">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Guardar Cambios
+          </Button>
+        </div>
+      </form>
+    ) : (
+      <!-- VIEW MODE -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl">
+        <!-- Column 1: Equipment Info -->
+        <div class="lg:col-span-2 space-y-6">
+          <div class="card-surface p-6">
+            <div class="flex items-start justify-between mb-6">
+              <h2 class="text-lg font-display font-bold">Información del Equipo</h2>
+              <Badge status={celular.estado} />
+            </div>
+
+            <div class="grid grid-cols-2 gap-y-5 gap-x-8">
+              <div>
+                <p class="text-xs text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Marca</p>
+                <p class="font-medium">{celular.marca}</p>
+              </div>
+              <div>
+                <p class="text-xs text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Modelo</p>
+                <p class="font-medium">{celular.modelo}</p>
+              </div>
+              <div>
+                <p class="text-xs text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Serial</p>
+                <p class="font-mono text-sm">{celular.serial}</p>
+              </div>
+              <div>
+                <p class="text-xs text-[var(--color-text-muted)] uppercase tracking-wider mb-1">IMEI</p>
+                <p class="font-mono text-sm">{celular.imei}</p>
+              </div>
+              <div class="col-span-2">
+                <p class="text-xs text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Observaciones</p>
+                <p class="text-sm text-[var(--color-text-secondary)]">{celular.observaciones || 'Sin observaciones'}</p>
+              </div>
+              <div>
+                <p class="text-xs text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Registrado</p>
+                <p class="text-sm text-[var(--color-text-secondary)]">{formatDateTime(celular.createdAt)}</p>
+              </div>
+              <div>
+                <p class="text-xs text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Última actualización</p>
+                <p class="text-sm text-[var(--color-text-secondary)]">{formatDateTime(celular.updatedAt)}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Assignment History -->
+          {historial.length > 0 && (
+            <div class="card-surface p-6">
+              <h2 class="text-lg font-display font-bold mb-4">Historial de Asignaciones</h2>
+              <div class="overflow-x-auto">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Funcionario</th>
+                      <th>SIM</th>
+                      <th>Asignado</th>
+                      <th>Devuelto</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {historial.map((h) => (
+                      <tr>
+                        <td class="text-sm">{h.funcionarioNombre || '—'}</td>
+                        <td class="text-sm">{h.simcard?.numeroSimcard || '—'}</td>
+                        <td class="text-sm text-[var(--color-text-secondary)]">{formatDate(h.fechaAsignacion)}</td>
+                        <td class="text-sm text-[var(--color-text-secondary)]">{formatDate(h.fechaDevolucion)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <!-- Column 2: Assignment & SIM -->
+        <div class="space-y-6">
+          <!-- Current Assignment -->
+          <div class="card-surface p-6">
+            <h2 class="text-base font-display font-bold mb-4 flex items-center gap-2">
+              <svg class="w-4 h-4 text-[var(--color-status-asignado)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+              Funcionario
+            </h2>
+            {asignacionActiva?.funcionarioNombre ? (
+              <div class="space-y-2">
+                <p class="font-medium text-[var(--color-text-primary)]">{asignacionActiva.funcionarioNombre}</p>
+                <p class="text-xs text-[var(--color-text-muted)]">Desde {formatDate(asignacionActiva.fechaAsignacion)}</p>
+                {asignacionActiva.observaciones && (
+                  <p class="text-sm text-[var(--color-text-secondary)] mt-2">{asignacionActiva.observaciones}</p>
+                )}
+              </div>
+            ) : (
+              <p class="text-sm text-[var(--color-text-muted)]">Sin funcionario asignado</p>
+            )}
+          </div>
+
+          <!-- SIM Info -->
+          <div class="card-surface p-6">
+            <h2 class="text-base font-display font-bold mb-4 flex items-center gap-2">
+              <svg class="w-4 h-4 text-[var(--color-accent-teal)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 4v4h6V4"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
+              SIM Card
+            </h2>
+            {asignacionActiva?.simcard ? (
+              <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                  <p class="font-medium">{asignacionActiva.simcard.numeroSimcard}</p>
+                  <Badge status={asignacionActiva.simcard.estado} size="sm" />
+                </div>
+                {asignacionActiva.simcard.numeroTelefono && (
+                  <p class="text-sm text-[var(--color-text-secondary)]">Tel: {asignacionActiva.simcard.numeroTelefono}</p>
+                )}
+                {asignacionActiva.simcard.operador && (
+                  <p class="text-sm text-[var(--color-text-secondary)]">Operador: {asignacionActiva.simcard.operador}</p>
+                )}
+              </div>
+            ) : (
+              <p class="text-sm text-[var(--color-text-muted)]">Sin SIM asociada</p>
+            )}
+          </div>
+
+          <!-- Quick Actions -->
+          <div class="card-surface p-6 space-y-3">
+            <h2 class="text-base font-display font-bold mb-2">Acciones</h2>
+            {asignacionActiva && (
+              <button id="release-btn" data-id={asignacionActiva.id} class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 bg-[oklch(from_var(--color-warning)_l_c_h_/_12%)] text-[var(--color-warning)] border border-[oklch(from_var(--color-warning)_l_c_h_/_25%)] hover:bg-[oklch(from_var(--color-warning)_l_c_h_/_20%)] cursor-pointer">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                Liberar Asignación
+              </button>
+            )}
+            <button id="baja-btn" data-id={celular.id} class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 bg-[oklch(from_var(--color-danger)_l_c_h_/_12%)] text-[var(--color-danger)] border border-[oklch(from_var(--color-danger)_l_c_h_/_25%)] hover:bg-[oklch(from_var(--color-danger)_l_c_h_/_20%)] cursor-pointer">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+              Dar de Baja
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+  </main>
+</BaseLayout>
+
+<script define:vars={{ marcasJson, celularMarca: celular.marca }}>
+  // ── Marca → Modelo linked selects (edit mode) ──
+  const marcasData = JSON.parse(marcasJson);
+  const marcaSelect = document.getElementById('marca');
+  const modeloSelect = document.getElementById('modelo');
+
+  marcaSelect?.addEventListener('change', () => {
+    const selectedOption = marcaSelect.selectedOptions[0];
+    const marcaId = selectedOption?.dataset?.marcaId;
+    const marca = marcasData.find((m) => m.id === marcaId);
+
+    modeloSelect.innerHTML = '';
+
+    if (marca && marca.modelos.length > 0) {
+      modeloSelect.disabled = false;
+      const defaultOpt = document.createElement('option');
+      defaultOpt.value = '';
+      defaultOpt.textContent = '— Seleccionar modelo —';
+      modeloSelect.appendChild(defaultOpt);
+      marca.modelos.forEach((mod) => {
+        const opt = document.createElement('option');
+        opt.value = mod.nombre;
+        opt.textContent = mod.nombre;
+        modeloSelect.appendChild(opt);
+      });
+    } else if (marca) {
+      modeloSelect.disabled = false;
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = 'No hay modelos — agréguelos en Mantenedores';
+      modeloSelect.appendChild(opt);
+    } else {
+      modeloSelect.disabled = true;
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = '— Primero selecciona una marca —';
+      modeloSelect.appendChild(opt);
+    }
+  });
+</script>
+
+<script define:vars={{ celularId: id }}>
+  // Edit form submission
+  const editForm = document.getElementById('edit-form');
+  const saveBtn = document.getElementById('save-btn');
+
+  editForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    saveBtn.disabled = true;
+
+    try {
+      const formData = new FormData(editForm);
+      const data = {
+        marca: formData.get('marca'),
+        modelo: formData.get('modelo'),
+        serial: formData.get('serial'),
+        imei: formData.get('imei'),
+        estado: formData.get('estado'),
+        observaciones: formData.get('observaciones') || '',
+      };
+
+      const res = await fetch(`/api/celulares/${celularId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      const json = await res.json();
+
+      if (json.success) {
+        window.showToast('Celular actualizado correctamente', 'success');
+        setTimeout(() => { window.location.href = `/celulares/${celularId}`; }, 800);
+      } else {
+        throw new Error(json.error?.message || 'Error al actualizar');
+      }
+    } catch (err) {
+      window.showToast(err.message || 'Error al guardar', 'error');
+      saveBtn.disabled = false;
+    }
+  });
+
+  // Release assignment
+  const releaseBtn = document.getElementById('release-btn');
+  releaseBtn?.addEventListener('click', async () => {
+    const confirmed = await window.confirmAction({
+      title: '¿Liberar asignación?',
+      message: 'El celular y la SIM volverán a estado "Disponible".',
+      confirmText: 'Liberar',
+    });
+
+    if (!confirmed) return;
+
+    try {
+      const asigId = releaseBtn.dataset.id;
+      const res = await fetch(`/api/asignaciones/${asigId}`, { method: 'DELETE' });
+      const json = await res.json();
+
+      if (json.success) {
+        window.showToast('Asignación liberada', 'success');
+        setTimeout(() => window.location.reload(), 800);
+      } else {
+        throw new Error(json.error?.message);
+      }
+    } catch (err) {
+      window.showToast(err.message || 'Error al liberar', 'error');
+    }
+  });
+
+  // Dar de baja
+  const bajaBtn = document.getElementById('baja-btn');
+  bajaBtn?.addEventListener('click', async () => {
+    const confirmed = await window.confirmAction({
+      title: '¿Dar de baja este equipo?',
+      message: 'El celular pasará a estado "Baja" y se liberará cualquier asignación activa.',
+      confirmText: 'Dar de Baja',
+    });
+
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`/api/celulares/${celularId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado: 'BAJA' }),
+      });
+
+      const json = await res.json();
+
+      if (json.success) {
+        window.showToast('Equipo dado de baja', 'success');
+        setTimeout(() => window.location.reload(), 800);
+      } else {
+        throw new Error(json.error?.message);
+      }
+    } catch (err) {
+      window.showToast(err.message || 'Error', 'error');
+    }
+  });
+</script>

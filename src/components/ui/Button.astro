@@ -1,0 +1,91 @@
+---
+interface Props {
+  variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
+  size?: 'sm' | 'md' | 'lg';
+  type?: 'button' | 'submit' | 'reset';
+  href?: string;
+  class?: string;
+  disabled?: boolean;
+  id?: string;
+}
+
+const {
+  variant = 'primary',
+  size = 'md',
+  type = 'button',
+  href,
+  class: className = '',
+  disabled = false,
+  id,
+} = Astro.props;
+
+const sizeClasses: Record<string, string> = {
+  sm: 'px-3 py-1.5 text-xs gap-1.5',
+  md: 'px-4 py-2.5 text-sm gap-2',
+  lg: 'px-6 py-3 text-base gap-2.5',
+};
+
+const variantClasses: Record<string, string> = {
+  primary: 'btn-primary',
+  secondary: 'btn-secondary',
+  danger: 'btn-danger',
+  ghost: 'btn-ghost',
+};
+
+const baseClasses = `inline-flex items-center justify-center font-medium rounded-xl transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${sizeClasses[size]} ${variantClasses[variant]} ${className}`;
+---
+
+{href ? (
+  <a href={href} class={baseClasses} id={id}>
+    <slot />
+  </a>
+) : (
+  <button type={type} class={baseClasses} disabled={disabled} id={id}>
+    <slot />
+  </button>
+)}
+
+<style>
+  .btn-primary {
+    background: linear-gradient(135deg, var(--color-accent), var(--color-accent-teal));
+    color: var(--color-bg-base);
+    font-weight: 600;
+    box-shadow: 0 2px 12px var(--color-accent-glow);
+  }
+  .btn-primary:hover:not(:disabled) {
+    box-shadow: 0 4px 20px var(--color-accent-glow), 0 0 40px oklch(80% 0.18 200 / 12%);
+    transform: translateY(-1px);
+  }
+  .btn-primary:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  .btn-secondary {
+    background: var(--color-bg-elevated);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border-subtle);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    border-color: var(--color-border-accent);
+    background: oklch(from var(--color-bg-elevated) l c h / 80%);
+  }
+
+  .btn-danger {
+    background: oklch(from var(--color-danger) l c h / 15%);
+    color: var(--color-danger);
+    border: 1px solid oklch(from var(--color-danger) l c h / 25%);
+  }
+  .btn-danger:hover:not(:disabled) {
+    background: oklch(from var(--color-danger) l c h / 25%);
+    box-shadow: 0 0 20px oklch(from var(--color-danger) l c h / 15%);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--color-text-secondary);
+  }
+  .btn-ghost:hover:not(:disabled) {
+    background: var(--color-bg-elevated);
+    color: var(--color-text-primary);
+  }
+</style>

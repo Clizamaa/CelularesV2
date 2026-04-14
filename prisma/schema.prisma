@@ -1,0 +1,89 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Celular {
+  id            String        @id @default(uuid())
+  marca         String        @db.VarChar(50)
+  modelo        String        @db.VarChar(100)
+  serial        String        @unique @db.VarChar(50)
+  imei          String        @unique @db.Char(15)
+  observaciones String?       @db.Text
+  estado        EstadoCelular @default(DISPONIBLE)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  asignacion    Asignacion?
+}
+
+model Simcard {
+  id             String        @id @default(uuid())
+  numeroSimcard  String        @unique @db.VarChar(30)
+  numeroTelefono String?       @db.VarChar(15)
+  operador       String?       @db.VarChar(50)
+  observaciones  String?       @db.Text
+  estado         EstadoSimcard @default(DISPONIBLE)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  asignacion     Asignacion?
+}
+
+model Asignacion {
+  id                String    @id @default(uuid())
+  celularId         String    @unique
+  simcardId         String?   @unique
+  funcionarioId     String?   @db.VarChar(100)
+  funcionarioNombre String?   @db.VarChar(200)
+  fechaAsignacion   DateTime  @default(now())
+  fechaDevolucion   DateTime?
+  activa            Boolean   @default(true)
+  observaciones     String?   @db.Text
+
+  celular  Celular  @relation(fields: [celularId], references: [id])
+  simcard  Simcard? @relation(fields: [simcardId], references: [id])
+
+  @@index([celularId])
+  @@index([simcardId])
+  @@index([funcionarioId])
+}
+
+enum EstadoCelular {
+  DISPONIBLE
+  ASIGNADO
+  MANTENIMIENTO
+  BAJA
+}
+
+model Marca {
+  id        String   @id @default(uuid())
+  nombre    String   @unique @db.VarChar(50)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  modelos   Modelo[]
+}
+
+model Modelo {
+  id        String   @id @default(uuid())
+  nombre    String   @db.VarChar(100)
+  marcaId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  marca     Marca    @relation(fields: [marcaId], references: [id], onDelete: Cascade)
+
+  @@unique([marcaId, nombre])
+  @@index([marcaId])
+}
+
+enum EstadoSimcard {
+  DISPONIBLE
+  ASIGNADA
+  SUSPENDIDA
+}

@@ -1,0 +1,240 @@
+---
+interface Props {
+  currentPath: string;
+}
+
+const { currentPath } = Astro.props;
+
+const navItems = [
+  {
+    label: 'Dashboard',
+    href: '/',
+    icon: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`,
+  },
+  {
+    label: 'Celulares',
+    href: '/celulares',
+    icon: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>`,
+  },
+  {
+    label: 'SIM Cards',
+    href: '/simcards',
+    icon: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 4v4h6V4"/><path d="M9 16v4"/><path d="M15 16v4"/><line x1="9" y1="12" x2="15" y2="12"/></svg>`,
+  },
+];
+
+const mantenedorItems = [
+  {
+    label: 'Marcas y Modelos',
+    href: '/mantenedores/marcas',
+    icon: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg>`,
+  },
+];
+
+function isActive(itemHref: string, current: string): boolean {
+  if (itemHref === '/') return current === '/';
+  return current.startsWith(itemHref);
+}
+---
+
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-icon">
+      <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="url(#grad)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <defs>
+          <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:var(--color-accent)" />
+            <stop offset="100%" style="stop-color:var(--color-accent-teal)" />
+          </linearGradient>
+        </defs>
+        <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+        <line x1="12" y1="18" x2="12.01" y2="18"/>
+        <path d="M9 6h6"/>
+        <path d="M9 10h6"/>
+      </svg>
+    </div>
+    <div class="brand-text">
+      <span class="brand-name text-gradient-accent">CelularES</span>
+      <span class="brand-sub">Sistema de Inventario</span>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">MENÚ PRINCIPAL</div>
+    {navItems.map((item) => {
+      const active = isActive(item.href, currentPath);
+      return (
+        <a
+          href={item.href}
+          class={`nav-link ${active ? 'nav-link-active' : ''}`}
+          aria-current={active ? 'page' : undefined}
+        >
+          <span class="nav-icon" set:html={item.icon} />
+          <span class="nav-label">{item.label}</span>
+          {active && <span class="nav-indicator" />}
+        </a>
+      );
+    })}
+
+    <div class="nav-section-label mt-4">MANTENEDORES</div>
+    {mantenedorItems.map((item) => {
+      const active = isActive(item.href, currentPath);
+      return (
+        <a
+          href={item.href}
+          class={`nav-link ${active ? 'nav-link-active' : ''}`}
+          aria-current={active ? 'page' : undefined}
+        >
+          <span class="nav-icon" set:html={item.icon} />
+          <span class="nav-label">{item.label}</span>
+          {active && <span class="nav-indicator" />}
+        </a>
+      );
+    })}
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="sidebar-footer-info">
+      <div class="w-2 h-2 rounded-full bg-[var(--color-status-disponible)]"></div>
+      <span class="text-xs text-[var(--color-text-secondary)]">Sistema operativo</span>
+    </div>
+  </div>
+</aside>
+
+<style>
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: var(--spacing-sidebar);
+    height: 100dvh;
+    background: var(--color-bg-surface);
+    border-right: 1px solid var(--color-border-subtle);
+    display: flex;
+    flex-direction: column;
+    z-index: 40;
+    overflow-y: auto;
+  }
+
+  .sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1.5rem 1.25rem;
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+
+  .brand-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.875rem;
+    background: oklch(from var(--color-accent) l c h / 8%);
+    flex-shrink: 0;
+  }
+
+  .brand-text {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .brand-name {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.125rem;
+    letter-spacing: -0.02em;
+  }
+
+  .brand-sub {
+    font-size: 0.6875rem;
+    color: var(--color-text-muted);
+    letter-spacing: 0.02em;
+  }
+
+  .sidebar-nav {
+    flex: 1;
+    padding: 1rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .nav-section-label {
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    color: var(--color-text-muted);
+    padding: 0.5rem 0.75rem 0.75rem;
+    text-transform: uppercase;
+  }
+
+  .nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 0.75rem;
+    border-radius: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 450;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .nav-link:hover {
+    background: oklch(from var(--color-bg-elevated) l c h / 70%);
+    color: var(--color-text-primary);
+  }
+
+  .nav-link-active {
+    background: oklch(from var(--color-accent) l c h / 8%);
+    color: var(--color-accent);
+    font-weight: 500;
+  }
+
+  .nav-link-active:hover {
+    background: oklch(from var(--color-accent) l c h / 12%);
+    color: var(--color-accent);
+  }
+
+  .nav-indicator {
+    position: absolute;
+    right: 0.5rem;
+    width: 0.375rem;
+    height: 0.375rem;
+    border-radius: 9999px;
+    background: var(--color-accent);
+    box-shadow: 0 0 8px var(--color-accent-glow);
+  }
+
+  .nav-icon {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .sidebar-footer {
+    padding: 1rem 1.25rem;
+    border-top: 1px solid var(--color-border-subtle);
+  }
+
+  .sidebar-footer-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  @media (max-width: 1023px) {
+    .sidebar {
+      transform: translateX(-100%);
+      transition: transform 0.3s var(--ease-smooth);
+    }
+
+    .sidebar.open {
+      transform: translateX(0);
+    }
+  }
+</style>

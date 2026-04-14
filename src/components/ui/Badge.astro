@@ -1,0 +1,43 @@
+---
+interface Props {
+  status: string;
+  size?: 'sm' | 'md';
+  class?: string;
+}
+
+const { status, size = 'md', class: className = '' } = Astro.props;
+
+const colors: Record<string, { bg: string; text: string; dot: string }> = {
+  DISPONIBLE:     { bg: 'oklch(from var(--color-status-disponible) l c h / 12%)',     text: 'var(--color-status-disponible)',     dot: 'var(--color-status-disponible)' },
+  ASIGNADO:       { bg: 'oklch(from var(--color-status-asignado) l c h / 12%)',       text: 'var(--color-status-asignado)',       dot: 'var(--color-status-asignado)' },
+  ASIGNADA:       { bg: 'oklch(from var(--color-status-asignado) l c h / 12%)',       text: 'var(--color-status-asignado)',       dot: 'var(--color-status-asignado)' },
+  MANTENIMIENTO:  { bg: 'oklch(from var(--color-status-mantenimiento) l c h / 12%)',  text: 'var(--color-status-mantenimiento)',  dot: 'var(--color-status-mantenimiento)' },
+  BAJA:           { bg: 'oklch(from var(--color-danger) l c h / 12%)',                text: 'var(--color-danger)',                dot: 'var(--color-danger)' },
+  SUSPENDIDA:     { bg: 'oklch(from var(--color-status-suspendida) l c h / 12%)',     text: 'var(--color-status-suspendida)',     dot: 'var(--color-status-suspendida)' },
+};
+
+const labels: Record<string, string> = {
+  DISPONIBLE: 'Disponible',
+  ASIGNADO: 'Asignado',
+  ASIGNADA: 'Asignada',
+  MANTENIMIENTO: 'Mantenimiento',
+  BAJA: 'Baja',
+  SUSPENDIDA: 'Suspendida',
+};
+
+const sizeClasses: Record<string, string> = {
+  sm: 'px-2 py-0.5 text-[0.6875rem]',
+  md: 'px-2.5 py-1 text-xs',
+};
+
+const color = colors[status] ?? colors.DISPONIBLE;
+const label = labels[status] ?? status;
+---
+
+<span
+  class={`inline-flex items-center gap-1.5 rounded-full font-medium whitespace-nowrap ${sizeClasses[size]} ${className}`}
+  style={`background: ${color.bg}; color: ${color.text};`}
+>
+  <span class="w-1.5 h-1.5 rounded-full shrink-0" style={`background: ${color.dot};`}></span>
+  {label}
+</span>

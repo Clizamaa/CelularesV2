@@ -1,0 +1,220 @@
+---
+import BaseLayout from '@/components/layout/BaseLayout.astro';
+import Header from '@/components/layout/Header.astro';
+import Badge from '@/components/ui/Badge.astro';
+import Button from '@/components/ui/Button.astro';
+import { prisma } from '@/lib/prisma';
+import { formatDate, formatDateTime } from '@/lib/utils/format';
+
+const { id } = Astro.params;
+const editMode = Astro.url.searchParams.get('edit') === 'true';
+
+if (!id) return Astro.redirect('/simcards');
+
+const simcard = await prisma.simcard.findUnique({
+  where: { id },
+  include: {
+    asignacion: {
+      include: { celular: true },
+    },
+  },
+});
+
+if (!simcard) return Astro.redirect('/simcards');
+
+const asignacionActiva = simcard.asignacion?.activa ? simcard.asignacion : null;
+---
+
+<BaseLayout title={`SIM ${simcard.numeroSimcard} — CelularES`}>
+  <Header
+    title={editMode ? 'Editar SIM Card' : `SIM ${simcard.numeroSimcard}`}
+    breadcrumbs={[
+      { label: 'Dashboard', href: '/' },
+      { label: 'SIM Cards', href: '/simcards' },
+      { label: editMode ? 'Editar' : simcard.numeroSimcard },
+    ]}
+  >
+    {!editMode && (
+      <Button href={`/simcards/${id}?edit=true`} variant="secondary" size="sm">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Editar
+      </Button>
+    )}
+  </Header>
+
+  <main class="p-6 lg:p-8 animate-fade-in max-w-4xl">
+    {editMode ? (
+      <form id="edit-form" class="space-y-6" novalidate>
+        <section class="card-surface p-6 lg:p-8">
+          <h2 class="text-lg font-display font-bold mb-6 flex items-center gap-2">
+            <svg class="w-5 h-5 text-[var(--color-accent-teal)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 4v4h6V4"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
+            Datos de la SIM Card
+          </h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div class="flex flex-col gap-1.5">
+              <label for="numeroSimcard" class="text-sm font-medium text-[var(--color-text-secondary)]">N° SIM Card *</label>
+              <input id="numeroSimcard" name="numeroSimcard" value={simcard.numeroSimcard} required class="input-base" />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label for="numeroTelefono" class="text-sm font-medium text-[var(--color-text-secondary)]">N° Teléfono</label>
+              <input id="numeroTelefono" name="numeroTelefono" value={simcard.numeroTelefono || ''} class="input-base" />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label for="operador" class="text-sm font-medium text-[var(--color-text-secondary)]">Operador</label>
+              <input id="operador" name="operador" value={simcard.operador || ''} class="input-base" />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label for="estado" class="text-sm font-medium text-[var(--color-text-secondary)]">Estado</label>
+              <select id="estado" name="estado" class="input-base">
+                <option value="DISPONIBLE" selected={simcard.estado === 'DISPONIBLE'}>Disponible</option>
+                <option value="ASIGNADA" selected={simcard.estado === 'ASIGNADA'}>Asignada</option>
+                <option value="SUSPENDIDA" selected={simcard.estado === 'SUSPENDIDA'}>Suspendida</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="mt-5">
+            <label for="observaciones" class="text-sm font-medium text-[var(--color-text-secondary)] block mb-1.5">Observaciones</label>
+            <textarea id="observaciones" name="observaciones" maxlength="500" class="input-base resize-none min-h-[5rem]">{simcard.observaciones || ''}</textarea>
+          </div>
+        </section>
+
+        <div class="flex items-center justify-end gap-3">
+          <Button href={`/simcards/${id}`} variant="ghost">Cancelar</Button>
+          <Button type="submit" variant="primary" id="save-btn">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Guardar Cambios
+          </Button>
+        </div>
+      </form>
+    ) : (
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="card-surface p-6">
+          <div class="flex items-start justify-between mb-6">
+            <h2 class="text-lg font-display font-bold">Información de la SIM</h2>
+            <Badge status={simcard.estado} />
+          </div>
+
+          <div class="grid grid-cols-2 gap-y-5 gap-x-8">
+            <div>
+              <p class="text-xs text-[var(--color-text-muted)] uppercase tracking-wider mb-1">N° SIM Card</p>
+              <p class="font-medium font-mono">{simcard.numeroSimcard}</p>
+            </div>
+            <div>
+              <p class="text-xs text-[var(--color-text-muted)] uppercase tracking-wider mb-1">N° Teléfono</p>
+              <p class="font-medium">{simcard.numeroTelefono || '—'}</p>
+            </div>
+            <div>
+              <p class="text-xs text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Operador</p>
+              <p class="font-medium">{simcard.operador || '—'}</p>
+            </div>
+            <div>
+              <p class="text-xs text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Registrada</p>
+              <p class="text-sm text-[var(--color-text-secondary)]">{formatDateTime(simcard.createdAt)}</p>
+            </div>
+            <div class="col-span-2">
+              <p class="text-xs text-[var(--color-text-muted)] uppercase tracking-wider mb-1">Observaciones</p>
+              <p class="text-sm text-[var(--color-text-secondary)]">{simcard.observaciones || 'Sin observaciones'}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="space-y-6">
+          <div class="card-surface p-6">
+            <h2 class="text-base font-display font-bold mb-4 flex items-center gap-2">
+              <svg class="w-4 h-4 text-[var(--color-accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+              Equipo Asociado
+            </h2>
+            {asignacionActiva ? (
+              <div class="space-y-2">
+                <a href={`/celulares/${asignacionActiva.celularId}`} class="text-[var(--color-accent)] hover:underline font-medium">
+                  {asignacionActiva.celular.marca} {asignacionActiva.celular.modelo}
+                </a>
+                <p class="text-sm text-[var(--color-text-secondary)]">Serial: {asignacionActiva.celular.serial}</p>
+                {asignacionActiva.funcionarioNombre && (
+                  <p class="text-sm text-[var(--color-text-secondary)]">Funcionario: {asignacionActiva.funcionarioNombre}</p>
+                )}
+                <p class="text-xs text-[var(--color-text-muted)]">Desde {formatDate(asignacionActiva.fechaAsignacion)}</p>
+              </div>
+            ) : (
+              <p class="text-sm text-[var(--color-text-muted)]">No asociada a ningún equipo</p>
+            )}
+          </div>
+
+          <div class="card-surface p-6 space-y-3">
+            <h2 class="text-base font-display font-bold mb-2">Acciones</h2>
+            <button id="delete-btn" data-id={simcard.id} class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 bg-[oklch(from_var(--color-danger)_l_c_h_/_12%)] text-[var(--color-danger)] border border-[oklch(from_var(--color-danger)_l_c_h_/_25%)] hover:bg-[oklch(from_var(--color-danger)_l_c_h_/_20%)] cursor-pointer">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              Eliminar SIM Card
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+  </main>
+</BaseLayout>
+
+<script define:vars={{ simcardId: id }}>
+  // Edit form
+  const editForm = document.getElementById('edit-form');
+  const saveBtn = document.getElementById('save-btn');
+
+  editForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    saveBtn.disabled = true;
+
+    try {
+      const formData = new FormData(editForm);
+      const data = {
+        numeroSimcard: formData.get('numeroSimcard'),
+        numeroTelefono: formData.get('numeroTelefono') || '',
+        operador: formData.get('operador') || '',
+        estado: formData.get('estado'),
+        observaciones: formData.get('observaciones') || '',
+      };
+
+      const res = await fetch(`/api/simcards/${simcardId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      const json = await res.json();
+
+      if (json.success) {
+        window.showToast('SIM card actualizada correctamente', 'success');
+        setTimeout(() => { window.location.href = `/simcards/${simcardId}`; }, 800);
+      } else {
+        throw new Error(json.error?.message || 'Error al actualizar');
+      }
+    } catch (err) {
+      window.showToast(err.message || 'Error al guardar', 'error');
+      saveBtn.disabled = false;
+    }
+  });
+
+  // Delete
+  const deleteBtn = document.getElementById('delete-btn');
+  deleteBtn?.addEventListener('click', async () => {
+    const confirmed = await window.confirmAction({
+      title: '¿Eliminar SIM card?',
+      message: 'Se eliminará permanentemente esta SIM y sus asignaciones.',
+      confirmText: 'Eliminar',
+    });
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`/api/simcards/${simcardId}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (json.success) {
+        window.showToast('SIM card eliminada', 'success');
+        setTimeout(() => { window.location.href = '/simcards'; }, 800);
+      } else {
+        throw new Error(json.error?.message);
+      }
+    } catch (err) {
+      window.showToast(err.message || 'Error al eliminar', 'error');
+    }
+  });
+</script>

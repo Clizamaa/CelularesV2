@@ -1,0 +1,483 @@
+---
+/**
+ * BarcodeScanner — Componente reutilizable para lectores de código de barras.
+ * 
+ * Funciona de 2 maneras:
+ * 1. Modal de escaneo: Abre una ventana que captura la entrada del lector
+ * 2. Detección global: Detecta entrada rápida de teclado en cualquier contexto
+ *
+ * Los lectores USB emulan teclado: escriben rápido + Enter al final.
+ * Detectamos esa velocidad para diferenciar de escritura humana.
+ */
+---
+
+<!-- Scan Modal -->
+<dialog id="barcode-modal" class="barcode-dialog">
+  <div class="barcode-inner">
+    <div class="barcode-icon-wrap">
+      <div class="barcode-icon pulse-glow">
+        <svg class="w-10 h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+          <!-- Barcode icon -->
+          <path d="M3 5v-2h4"/><path d="M17 3h4v2"/>
+          <path d="M21 19v2h-4"/><path d="M7 21H3v-2"/>
+          <line x1="7" y1="8" x2="7" y2="16" stroke-width="2"/>
+          <line x1="10" y1="8" x2="10" y2="16"/>
+          <line x1="13" y1="8" x2="13" y2="16" stroke-width="2.5"/>
+          <line x1="16" y1="8" x2="16" y2="16"/>
+          <line x1="19" y1="8" x2="19" y2="16" stroke-width="1.5"/>
+          <line x1="5" y1="8" x2="5" y2="16" stroke-width="1.5"/>
+        </svg>
+      </div>
+    </div>
+
+    <h3 class="barcode-title">Escanear Código de Barras</h3>
+    <p class="barcode-subtitle">Apunta el lector al código de barras del equipo</p>
+
+    <!-- Scan input (hidden, receives focus) -->
+    <input
+      type="text"
+      id="barcode-input"
+      class="barcode-hidden-input"
+      autocomplete="off"
+      autofocus
+    />
+
+    <!-- Visual feedback -->
+    <div class="barcode-status" id="barcode-status">
+      <div class="scanning-indicator">
+        <span class="scan-dot"></span>
+        <span class="scan-dot"></span>
+        <span class="scan-dot"></span>
+      </div>
+      <p class="scan-text">Esperando lectura...</p>
+    </div>
+
+    <!-- Scanned value preview -->
+    <div class="barcode-preview hidden" id="barcode-preview">
+      <p class="preview-label">Código leído:</p>
+      <p class="preview-value" id="barcode-value"></p>
+    </div>
+
+    <!-- Manual input fallback -->
+    <details class="barcode-manual">
+      <summary class="manual-summary">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Ingresar manualmente
+      </summary>
+      <div class="manual-input-wrap">
+        <input
+          type="text"
+          id="barcode-manual-input"
+          placeholder="Ingrese el código manualmente..."
+          class="input-base"
+        />
+        <button type="button" id="barcode-manual-btn" class="manual-confirm-btn">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Aceptar
+        </button>
+      </div>
+    </details>
+
+    <div class="barcode-actions">
+      <button type="button" id="barcode-cancel" class="barcode-btn-cancel">Cancelar</button>
+    </div>
+  </div>
+</dialog>
+
+<style>
+  .barcode-dialog {
+    background: var(--color-bg-surface);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 1.5rem;
+    padding: 0;
+    width: calc(100% - 2rem);
+    max-width: 28rem;
+    color: var(--color-text-primary);
+    box-shadow: 0 24px 80px oklch(0% 0 0 / 60%);
+  }
+
+  .barcode-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2.5rem 2rem 1.5rem;
+    text-align: center;
+  }
+
+  .barcode-icon-wrap {
+    margin-bottom: 1.25rem;
+  }
+
+  .barcode-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 5rem;
+    height: 5rem;
+    border-radius: 1.25rem;
+    background: oklch(from var(--color-accent) l c h / 10%);
+    color: var(--color-accent);
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  .barcode-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.25rem;
+    letter-spacing: -0.02em;
+  }
+
+  .barcode-subtitle {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    margin-top: 0.375rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .barcode-hidden-input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .barcode-status {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1.25rem;
+    border-radius: 1rem;
+    background: var(--color-bg-elevated);
+    width: 100%;
+    margin-bottom: 1rem;
+  }
+
+  .scanning-indicator {
+    display: flex;
+    gap: 0.375rem;
+  }
+
+  .scan-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 9999px;
+    background: var(--color-accent);
+    animation: scanPulse 1.4s ease-in-out infinite;
+  }
+
+  .scan-dot:nth-child(2) { animation-delay: 0.2s; }
+  .scan-dot:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes scanPulse {
+    0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+    40% { opacity: 1; transform: scale(1.2); }
+  }
+
+  .scan-text {
+    font-size: 0.8125rem;
+    color: var(--color-text-secondary);
+  }
+
+  .barcode-preview {
+    width: 100%;
+    padding: 1rem;
+    border-radius: 0.75rem;
+    background: oklch(from var(--color-status-disponible) l c h / 8%);
+    border: 1px solid oklch(from var(--color-status-disponible) l c h / 20%);
+    margin-bottom: 1rem;
+  }
+
+  .preview-label {
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+    margin-bottom: 0.25rem;
+  }
+
+  .preview-value {
+    font-family: monospace;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--color-status-disponible);
+    word-break: break-all;
+  }
+
+  .barcode-manual {
+    width: 100%;
+    margin-bottom: 1rem;
+  }
+
+  .manual-summary {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.15s;
+    list-style: none;
+  }
+
+  .manual-summary::-webkit-details-marker { display: none; }
+
+  .manual-summary:hover {
+    color: var(--color-text-secondary);
+  }
+
+  .manual-input-wrap {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+  }
+
+  .manual-confirm-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.625rem 1rem;
+    border-radius: 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    background: var(--color-accent);
+    color: var(--color-bg-base);
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .manual-confirm-btn:hover {
+    filter: brightness(1.1);
+  }
+
+  .barcode-actions {
+    width: 100%;
+    margin-top: 0.5rem;
+  }
+
+  .barcode-btn-cancel {
+    width: 100%;
+    padding: 0.75rem;
+    border-radius: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    background: var(--color-bg-elevated);
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border-subtle);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .barcode-btn-cancel:hover {
+    border-color: var(--color-border-accent);
+    color: var(--color-text-primary);
+  }
+</style>
+
+<script is:inline>
+  /**
+   * Global Barcode Scanner System
+   * 
+   * Usage:
+   *   window.openBarcodeScanner({ 
+   *     targetField: 'imei',       // id of the field to populate
+   *     onScan: (value) => { ... } // optional callback
+   *   })
+   */
+  (function() {
+    const modal = document.getElementById('barcode-modal');
+    const hiddenInput = document.getElementById('barcode-input');
+    const statusDiv = document.getElementById('barcode-status');
+    const previewDiv = document.getElementById('barcode-preview');
+    const valueDisplay = document.getElementById('barcode-value');
+    const cancelBtn = document.getElementById('barcode-cancel');
+    const manualInput = document.getElementById('barcode-manual-input');
+    const manualBtn = document.getElementById('barcode-manual-btn');
+
+    let currentOptions = null;
+    let scanBuffer = '';
+    let scanTimer = null;
+
+    // ── Open scanner modal ──
+    window.openBarcodeScanner = function(options = {}) {
+      currentOptions = options;
+      scanBuffer = '';
+      
+      // Reset UI
+      statusDiv.classList.remove('hidden');
+      previewDiv.classList.add('hidden');
+      hiddenInput.value = '';
+      if (manualInput) manualInput.value = '';
+
+      modal.showModal();
+
+      // Focus hidden input to capture scanner input
+      setTimeout(() => hiddenInput.focus(), 100);
+    };
+
+    // ── Detect barcode input ──
+    // Barcode scanners type characters very fast (< 50ms between keystrokes)
+    // and end with Enter. We detect this pattern.
+    if (hiddenInput) {
+      hiddenInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          if (scanBuffer.length >= 3) {
+            handleScannedValue(scanBuffer);
+          }
+          scanBuffer = '';
+          clearTimeout(scanTimer);
+          return;
+        }
+
+        // Ignore modifiers
+        if (e.key.length !== 1) return;
+
+        scanBuffer += e.key;
+
+        // Reset timer - if no input for 100ms, clear buffer
+        clearTimeout(scanTimer);
+        scanTimer = setTimeout(() => {
+          scanBuffer = '';
+        }, 100);
+      });
+
+      // Also handle paste (some scanners use paste)
+      hiddenInput.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const text = e.clipboardData?.getData('text')?.trim();
+        if (text && text.length >= 3) {
+          handleScannedValue(text);
+        }
+      });
+
+      // Keep focus on hidden input when modal is open
+      hiddenInput.addEventListener('blur', () => {
+        if (modal.open) {
+          setTimeout(() => {
+            if (modal.open && document.activeElement !== manualInput) {
+              hiddenInput.focus();
+            }
+          }, 100);
+        }
+      });
+    }
+
+    // ── Handle scanned value ──
+    function handleScannedValue(value) {
+      const cleaned = value.trim();
+      if (!cleaned) return;
+
+      // Show preview
+      valueDisplay.textContent = cleaned;
+      statusDiv.classList.add('hidden');
+      previewDiv.classList.remove('hidden');
+
+      // Apply to target field
+      if (currentOptions?.targetField) {
+        const field = document.getElementById(currentOptions.targetField);
+        if (field) {
+          field.value = cleaned;
+          field.dispatchEvent(new Event('input', { bubbles: true }));
+          field.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }
+
+      // Callback
+      if (currentOptions?.onScan) {
+        currentOptions.onScan(cleaned);
+      }
+
+      // Auto-close after short delay
+      setTimeout(() => {
+        modal.close();
+        if (window.showToast) {
+          window.showToast(`Código leído: ${cleaned.substring(0, 20)}${cleaned.length > 20 ? '...' : ''}`, 'success');
+        }
+      }, 600);
+    }
+
+    // ── Manual input ──
+    manualBtn?.addEventListener('click', () => {
+      const value = manualInput?.value?.trim();
+      if (value) handleScannedValue(value);
+    });
+
+    manualInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const value = manualInput.value?.trim();
+        if (value) handleScannedValue(value);
+      }
+    });
+
+    // ── Cancel ──
+    cancelBtn?.addEventListener('click', () => {
+      modal.close();
+    });
+
+    modal?.addEventListener('cancel', () => {
+      scanBuffer = '';
+    });
+
+    // ── Global barcode detection (outside modal) ──
+    // Detects fast keyboard input patterns typical of barcode scanners
+    let globalBuffer = '';
+    let globalTimer = null;
+    let lastKeyTime = 0;
+    const SPEED_THRESHOLD = 50; // ms between characters for scanner
+
+    document.addEventListener('keydown', (e) => {
+      // Skip if modal is open, or if user is typing in an input
+      if (modal?.open) return;
+      const activeEl = document.activeElement;
+      const isTyping = activeEl && (
+        activeEl.tagName === 'INPUT' || 
+        activeEl.tagName === 'TEXTAREA' || 
+        activeEl.tagName === 'SELECT' ||
+        activeEl.isContentEditable
+      );
+      if (isTyping) return;
+
+      const now = Date.now();
+
+      if (e.key === 'Enter' && globalBuffer.length >= 5) {
+        e.preventDefault();
+        // Scanned value detected globally - navigate to search
+        const scannedValue = globalBuffer;
+        globalBuffer = '';
+
+        if (window.showToast) {
+          window.showToast(`Escaneado: ${scannedValue}`, 'info');
+        }
+
+        // Search for the scanned value
+        const currentPath = window.location.pathname;
+        if (currentPath.startsWith('/celulares')) {
+          window.location.href = `/celulares?q=${encodeURIComponent(scannedValue)}`;
+        } else if (currentPath.startsWith('/simcards')) {
+          window.location.href = `/simcards?q=${encodeURIComponent(scannedValue)}`;
+        } else {
+          window.location.href = `/celulares?q=${encodeURIComponent(scannedValue)}`;
+        }
+        return;
+      }
+
+      if (e.key.length !== 1) return;
+
+      if (now - lastKeyTime > SPEED_THRESHOLD && globalBuffer.length > 0) {
+        // Too slow - human typing, reset
+        globalBuffer = '';
+      }
+
+      globalBuffer += e.key;
+      lastKeyTime = now;
+
+      clearTimeout(globalTimer);
+      globalTimer = setTimeout(() => {
+        globalBuffer = '';
+      }, 200);
+    });
+  })();
+</script>

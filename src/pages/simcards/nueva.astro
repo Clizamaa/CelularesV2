@@ -1,0 +1,103 @@
+---
+import BaseLayout from '@/components/layout/BaseLayout.astro';
+import Header from '@/components/layout/Header.astro';
+import Button from '@/components/ui/Button.astro';
+import Input from '@/components/ui/Input.astro';
+---
+
+<BaseLayout title="Nueva SIM Card — CelularES">
+  <Header
+    title="Nueva SIM Card"
+    breadcrumbs={[
+      { label: 'Dashboard', href: '/' },
+      { label: 'SIM Cards', href: '/simcards' },
+      { label: 'Nueva' },
+    ]}
+  />
+
+  <main class="p-6 lg:p-8 max-w-3xl animate-fade-in">
+    <form id="simcard-form" class="space-y-8" novalidate>
+      <section class="card-surface p-6 lg:p-8">
+        <h2 class="text-lg font-display font-bold mb-6 flex items-center gap-2">
+          <svg class="w-5 h-5 text-[var(--color-accent-teal)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 4v4h6V4"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
+          Datos de la SIM Card
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <Input label="N° SIM Card" name="numeroSimcard" placeholder="Número identificador de la SIM" required helper="Identificador único de la tarjeta" />
+          <Input label="N° Teléfono" name="numeroTelefono" placeholder="+56 9 1234 5678" helper="Número asociado a la línea" />
+          <Input label="Operador" name="operador" placeholder="Ej: Entel, Movistar, Claro, WOM" />
+          <div class="flex flex-col gap-1.5">
+            <label for="estado" class="text-sm font-medium text-[var(--color-text-secondary)]">Estado</label>
+            <select id="estado" name="estado" class="input-base">
+              <option value="DISPONIBLE">Disponible</option>
+              <option value="ASIGNADA">Asignada</option>
+              <option value="SUSPENDIDA">Suspendida</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="mt-5">
+          <label for="observaciones" class="text-sm font-medium text-[var(--color-text-secondary)] block mb-1.5">Observaciones</label>
+          <textarea id="observaciones" name="observaciones" maxlength="500" placeholder="Notas adicionales..." class="input-base resize-none min-h-[5rem]"></textarea>
+          <p class="text-xs text-[var(--color-text-muted)] text-right mt-1" id="obs-counter">0/500</p>
+        </div>
+      </section>
+
+      <div class="flex items-center justify-end gap-3">
+        <Button href="/simcards" variant="ghost">Cancelar</Button>
+        <Button type="submit" variant="primary" id="submit-btn">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Guardar SIM Card
+        </Button>
+      </div>
+    </form>
+  </main>
+</BaseLayout>
+
+<script>
+  const obsTextarea = document.getElementById('observaciones') as HTMLTextAreaElement;
+  const obsCounter = document.getElementById('obs-counter')!;
+  obsTextarea?.addEventListener('input', () => {
+    obsCounter.textContent = `${obsTextarea.value.length}/500`;
+  });
+
+  const form = document.getElementById('simcard-form') as HTMLFormElement;
+  const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = `<svg class="w-4 h-4" style="animation: spin 1s linear infinite" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Guardando...`;
+
+    try {
+      const formData = new FormData(form);
+      const data = {
+        numeroSimcard: formData.get('numeroSimcard'),
+        numeroTelefono: formData.get('numeroTelefono') || '',
+        operador: formData.get('operador') || '',
+        estado: formData.get('estado'),
+        observaciones: formData.get('observaciones') || '',
+      };
+
+      const res = await fetch('/api/simcards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      const json = await res.json();
+
+      if (json.success) {
+        (window as any).showToast('SIM card creada exitosamente', 'success');
+        setTimeout(() => { window.location.href = '/simcards'; }, 1000);
+      } else {
+        throw new Error(json.error?.message || 'Error al crear SIM card');
+      }
+    } catch (err: any) {
+      (window as any).showToast(err.message || 'Error al guardar', 'error');
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar SIM Card`;
+    }
+  });
+</script>

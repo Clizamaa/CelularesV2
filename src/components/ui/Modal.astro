@@ -1,0 +1,89 @@
+---
+interface Props {
+  id: string;
+  title?: string;
+  size?: 'sm' | 'md' | 'lg';
+  class?: string;
+}
+
+const { id, title = '', size = 'md', class: className = '' } = Astro.props;
+
+const sizeClasses: Record<string, string> = {
+  sm: 'max-w-md',
+  md: 'max-w-xl',
+  lg: 'max-w-3xl',
+};
+---
+
+<dialog id={id} class={`modal-dialog ${sizeClasses[size]} ${className}`}>
+  <div class="modal-inner">
+    {title && (
+      <div class="modal-header">
+        <h3 class="text-lg font-display font-bold text-[var(--color-text-primary)]">{title}</h3>
+        <button type="button" class="modal-close" data-close-modal aria-label="Cerrar">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    )}
+    <div class="modal-body">
+      <slot />
+    </div>
+  </div>
+</dialog>
+
+<style>
+  .modal-dialog {
+    background: var(--color-bg-surface);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 1.25rem;
+    padding: 0;
+    width: calc(100% - 2rem);
+    color: var(--color-text-primary);
+    box-shadow: 0 16px 64px oklch(0% 0 0 / 50%);
+  }
+
+  .modal-inner {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+
+  .modal-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.5rem;
+    color: var(--color-text-secondary);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .modal-close:hover {
+    background: var(--color-bg-elevated);
+    color: var(--color-text-primary);
+  }
+
+  .modal-body {
+    padding: 1.5rem;
+  }
+</style>
+
+<script>
+  document.querySelectorAll('[data-close-modal]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const dialog = btn.closest('dialog');
+      if (dialog) dialog.close();
+    });
+  });
+</script>

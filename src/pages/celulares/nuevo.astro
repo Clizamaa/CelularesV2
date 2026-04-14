@@ -1,0 +1,619 @@
+---
+import BaseLayout from '@/components/layout/BaseLayout.astro';
+import Header from '@/components/layout/Header.astro';
+import Button from '@/components/ui/Button.astro';
+import Input from '@/components/ui/Input.astro';
+import { prisma } from '@/lib/prisma';
+
+const marcasDB = await prisma.marca.findMany({
+  include: { modelos: { orderBy: { nombre: 'asc' } } },
+  orderBy: { nombre: 'asc' },
+});
+
+// Serialize for use in client-side script
+const marcasJson = JSON.stringify(marcasDB.map(m => ({
+  id: m.id,
+  nombre: m.nombre,
+  modelos: m.modelos.map(mod => ({ id: mod.id, nombre: mod.nombre })),
+})));
+---
+
+<BaseLayout title="Nuevo Celular — CelularES">
+  <Header
+    title="Nuevo Celular"
+    breadcrumbs={[
+      { label: 'Dashboard', href: '/' },
+      { label: 'Celulares', href: '/celulares' },
+      { label: 'Nuevo' },
+    ]}
+  />
+
+  <main class="p-6 lg:p-8 max-w-4xl animate-fade-in">
+    <form id="celular-form" class="space-y-8" novalidate>
+      <!-- Section 1: Equipment Data -->
+      <section class="card-surface p-6 lg:p-8">
+        <h2 class="text-lg font-display font-bold mb-6 flex items-center gap-2">
+          <svg class="w-5 h-5 text-[var(--color-accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+          Datos del Equipo
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div class="flex flex-col gap-1.5">
+            <label for="marca" class="text-sm font-medium text-[var(--color-text-secondary)]">
+              Marca <span class="text-[var(--color-danger)] ml-0.5">*</span>
+            </label>
+            <select id="marca" name="marca" required class="input-base">
+              <option value="">— Seleccionar marca —</option>
+              {marcasDB.map((m) => (
+                <option value={m.nombre} data-marca-id={m.id}>{m.nombre}</option>
+              ))}
+            </select>
+            {marcasDB.length === 0 && (
+              <p class="text-xs text-[var(--color-warning)] flex items-center gap-1">
+                <svg class="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                No hay marcas. <a href="/mantenedores/marcas" class="underline hover:text-[var(--color-accent)]">Agregar marcas</a>
+              </p>
+            )}
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <label for="modelo" class="text-sm font-medium text-[var(--color-text-secondary)]">
+              Modelo <span class="text-[var(--color-danger)] ml-0.5">*</span>
+            </label>
+            <select id="modelo" name="modelo" required class="input-base" disabled>
+              <option value="">— Primero selecciona una marca —</option>
+            </select>
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <label for="serial" class="text-sm font-medium text-[var(--color-text-secondary)]">
+              Serial <span class="text-[var(--color-danger)] ml-0.5">*</span>
+            </label>
+            <div class="flex gap-2">
+              <input id="serial" name="serial" type="text" placeholder="Mínimo 5 caracteres" required class="input-base flex-1" />
+              <button type="button" class="scan-trigger-btn" onclick="window.openBarcodeScanner({ targetField: 'serial' })" title="Escanear código de barras">
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M3 5v-2h4"/><path d="M17 3h4v2"/><path d="M21 19v2h-4"/><path d="M7 21H3v-2"/><line x1="7" y1="8" x2="7" y2="16" stroke-width="2"/><line x1="10" y1="8" x2="10" y2="16"/><line x1="13" y1="8" x2="13" y2="16" stroke-width="2.5"/><line x1="16" y1="8" x2="16" y2="16"/></svg>
+              </button>
+            </div>
+            <p class="text-xs text-[var(--color-text-muted)]">Identificador único del equipo</p>
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <label for="imei" class="text-sm font-medium text-[var(--color-text-secondary)]">
+              IMEI <span class="text-[var(--color-danger)] ml-0.5">*</span>
+            </label>
+            <div class="flex gap-2">
+              <input
+                id="imei"
+                name="imei"
+                type="text"
+                maxlength="15"
+                placeholder="15 dígitos numéricos"
+                required
+                class="input-base flex-1"
+                inputmode="numeric"
+              />
+              <button type="button" class="scan-trigger-btn" onclick="window.openBarcodeScanner({ targetField: 'imei' })" title="Escanear código de barras">
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M3 5v-2h4"/><path d="M17 3h4v2"/><path d="M21 19v2h-4"/><path d="M7 21H3v-2"/><line x1="7" y1="8" x2="7" y2="16" stroke-width="2"/><line x1="10" y1="8" x2="10" y2="16"/><line x1="13" y1="8" x2="13" y2="16" stroke-width="2.5"/><line x1="16" y1="8" x2="16" y2="16"/></svg>
+              </button>
+            </div>
+            <p class="text-xs text-[var(--color-text-muted)]" id="imei-counter">0/15 dígitos</p>
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <label for="estado" class="text-sm font-medium text-[var(--color-text-secondary)]">Estado</label>
+            <select id="estado" name="estado" class="input-base">
+              <option value="DISPONIBLE">Disponible</option>
+              <option value="ASIGNADO">Asignado</option>
+              <option value="MANTENIMIENTO">Mantenimiento</option>
+              <option value="BAJA">Baja</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="mt-5">
+          <label for="observaciones" class="text-sm font-medium text-[var(--color-text-secondary)] block mb-1.5">
+            Observaciones
+          </label>
+          <textarea
+            id="observaciones"
+            name="observaciones"
+            maxlength="500"
+            placeholder="Notas adicionales sobre el equipo..."
+            class="input-base resize-none min-h-[5rem]"
+          ></textarea>
+          <p class="text-xs text-[var(--color-text-muted)] text-right mt-1" id="obs-counter">0/500</p>
+        </div>
+      </section>
+
+      <!-- Section 2: SIM Card -->
+      <section class="card-surface p-6 lg:p-8">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-display font-bold flex items-center gap-2">
+            <svg class="w-5 h-5 text-[var(--color-accent-teal)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 4v4h6V4"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
+            SIM Card
+          </h2>
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggle-sim" />
+            <span class="toggle-slider"></span>
+            <span class="text-sm text-[var(--color-text-secondary)] ml-2">Asociar SIM</span>
+          </label>
+        </div>
+
+        <div id="sim-section" class="collapsible-content collapsed">
+          <div class="space-y-4">
+            <div class="flex gap-3 mb-4">
+              <button type="button" class="filter-pill active" id="sim-existing-btn">Seleccionar existente</button>
+              <button type="button" class="filter-pill" id="sim-new-btn">Crear nueva SIM</button>
+            </div>
+
+            <!-- Existing SIM select -->
+            <div id="sim-existing-panel">
+              <div class="flex flex-col gap-1.5">
+                <label for="simcard-select" class="text-sm font-medium text-[var(--color-text-secondary)]">SIM disponible</label>
+                <select id="simcard-select" name="simcardId" class="input-base">
+                  <option value="">— Seleccionar SIM —</option>
+                </select>
+                <p class="text-xs text-[var(--color-text-muted)]">Solo se muestran SIMs con estado "Disponible"</p>
+              </div>
+            </div>
+
+            <!-- New SIM form -->
+            <div id="sim-new-panel" class="hidden">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <Input label="N° SIM Card" name="numeroSimcard" placeholder="Número de la SIM" />
+                <Input label="N° Teléfono" name="numeroTelefono" placeholder="+56 9 1234 5678" />
+                <Input label="Operador" name="operador" placeholder="Ej: Entel, Movistar, Claro" />
+                <div class="flex flex-col gap-1.5">
+                  <label for="sim-observaciones" class="text-sm font-medium text-[var(--color-text-secondary)]">Observaciones SIM</label>
+                  <textarea id="sim-observaciones" name="simObservaciones" maxlength="500" placeholder="Notas sobre la SIM..." class="input-base resize-none min-h-[4rem]"></textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 3: Funcionario -->
+      <section class="card-surface p-6 lg:p-8">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-display font-bold flex items-center gap-2">
+            <svg class="w-5 h-5 text-[var(--color-status-asignado)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+            Funcionario
+          </h2>
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggle-funcionario" />
+            <span class="toggle-slider"></span>
+            <span class="text-sm text-[var(--color-text-secondary)] ml-2">Asignar funcionario</span>
+          </label>
+        </div>
+
+        <div id="funcionario-section" class="collapsible-content collapsed">
+          <div class="space-y-4">
+            <div class="relative">
+              <label for="funcionario-search" class="text-sm font-medium text-[var(--color-text-secondary)] block mb-1.5">
+                Buscar funcionario
+              </label>
+              <div class="relative">
+                <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input
+                  type="text"
+                  id="funcionario-search"
+                  placeholder="Escribe para buscar por nombre, cargo..."
+                  class="input-base pl-10"
+                  autocomplete="off"
+                  role="combobox"
+                  aria-expanded="false"
+                  aria-controls="funcionario-results"
+                />
+                <div id="funcionario-results" class="combobox-results hidden" role="listbox"></div>
+              </div>
+            </div>
+
+            <div id="funcionario-selected" class="hidden card-surface p-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="font-medium text-[var(--color-text-primary)]" id="func-nombre"></p>
+                  <p class="text-sm text-[var(--color-text-secondary)]" id="func-cargo"></p>
+                  <p class="text-xs text-[var(--color-text-muted)]" id="func-dependencia"></p>
+                </div>
+                <button type="button" id="func-clear" class="action-btn" title="Quitar">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+              <input type="hidden" name="funcionarioId" id="func-id" />
+              <input type="hidden" name="funcionarioNombre" id="func-nombre-hidden" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Actions -->
+      <div class="flex items-center justify-end gap-3">
+        <Button href="/celulares" variant="ghost">Cancelar</Button>
+        <Button type="submit" variant="primary" id="submit-btn">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Guardar Celular
+        </Button>
+      </div>
+    </form>
+  </main>
+</BaseLayout>
+
+<style>
+  .toggle-switch {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .toggle-switch input {
+    display: none;
+  }
+
+  .toggle-slider {
+    width: 2.5rem;
+    height: 1.375rem;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 9999px;
+    position: relative;
+    transition: all 0.25s;
+  }
+
+  .toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 0.875rem;
+    height: 0.875rem;
+    border-radius: 9999px;
+    background: var(--color-text-muted);
+    top: 50%;
+    left: 3px;
+    transform: translateY(-50%);
+    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .toggle-switch input:checked + .toggle-slider {
+    background: oklch(from var(--color-accent) l c h / 20%);
+    border-color: var(--color-accent);
+  }
+
+  .toggle-switch input:checked + .toggle-slider::before {
+    left: calc(100% - 3px - 0.875rem);
+    background: var(--color-accent);
+  }
+
+  .action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.5rem;
+    color: var(--color-text-secondary);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .action-btn:hover {
+    background: var(--color-bg-elevated);
+    color: var(--color-text-primary);
+  }
+</style>
+
+<script define:vars={{ marcasJson }}>
+  // ── Marca → Modelo linked selects ──
+  const marcasData = JSON.parse(marcasJson);
+  const marcaSelect = document.getElementById('marca');
+  const modeloSelect = document.getElementById('modelo');
+
+  marcaSelect?.addEventListener('change', () => {
+    const selectedOption = marcaSelect.selectedOptions[0];
+    const marcaId = selectedOption?.dataset?.marcaId;
+    const marca = marcasData.find((m) => m.id === marcaId);
+
+    modeloSelect.innerHTML = '';
+
+    if (marca && marca.modelos.length > 0) {
+      modeloSelect.disabled = false;
+      const defaultOpt = document.createElement('option');
+      defaultOpt.value = '';
+      defaultOpt.textContent = '— Seleccionar modelo —';
+      modeloSelect.appendChild(defaultOpt);
+
+      marca.modelos.forEach((mod) => {
+        const opt = document.createElement('option');
+        opt.value = mod.nombre;
+        opt.textContent = mod.nombre;
+        modeloSelect.appendChild(opt);
+      });
+    } else if (marca) {
+      modeloSelect.disabled = false;
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = 'No hay modelos — agréguelos en Mantenedores';
+      modeloSelect.appendChild(opt);
+    } else {
+      modeloSelect.disabled = true;
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = '— Primero selecciona una marca —';
+      modeloSelect.appendChild(opt);
+    }
+  });
+</script>
+
+<script>
+  // IMEI - only digits, counter
+  const imeiInput = document.getElementById('imei') as HTMLInputElement;
+  const imeiCounter = document.getElementById('imei-counter')!;
+
+  imeiInput?.addEventListener('input', () => {
+    imeiInput.value = imeiInput.value.replace(/\D/g, '').slice(0, 15);
+    imeiCounter.textContent = `${imeiInput.value.length}/15 dígitos`;
+    if (imeiInput.value.length === 15) {
+      imeiCounter.style.color = 'var(--color-status-disponible)';
+    } else {
+      imeiCounter.style.color = 'var(--color-text-muted)';
+    }
+  });
+
+  // Observaciones counter
+  const obsTextarea = document.getElementById('observaciones') as HTMLTextAreaElement;
+  const obsCounter = document.getElementById('obs-counter')!;
+
+  obsTextarea?.addEventListener('input', () => {
+    obsCounter.textContent = `${obsTextarea.value.length}/500`;
+  });
+
+  // Collapsible SIM section
+  const toggleSim = document.getElementById('toggle-sim') as HTMLInputElement;
+  const simSection = document.getElementById('sim-section')!;
+
+  toggleSim?.addEventListener('change', () => {
+    if (toggleSim.checked) {
+      simSection.classList.remove('collapsed');
+      simSection.classList.add('expanded');
+      loadAvailableSims();
+    } else {
+      simSection.classList.add('collapsed');
+      simSection.classList.remove('expanded');
+    }
+  });
+
+  // SIM: toggle between existing / new
+  const simExistingBtn = document.getElementById('sim-existing-btn')!;
+  const simNewBtn = document.getElementById('sim-new-btn')!;
+  const simExistingPanel = document.getElementById('sim-existing-panel')!;
+  const simNewPanel = document.getElementById('sim-new-panel')!;
+
+  simExistingBtn?.addEventListener('click', () => {
+    simExistingBtn.classList.add('active');
+    simNewBtn.classList.remove('active');
+    simExistingPanel.classList.remove('hidden');
+    simNewPanel.classList.add('hidden');
+  });
+
+  simNewBtn?.addEventListener('click', () => {
+    simNewBtn.classList.add('active');
+    simExistingBtn.classList.remove('active');
+    simNewPanel.classList.remove('hidden');
+    simExistingPanel.classList.add('hidden');
+  });
+
+  // Load available SIMs
+  async function loadAvailableSims() {
+    try {
+      const res = await fetch('/api/simcards?estado=DISPONIBLE&limit=100');
+      const json = await res.json();
+      const select = document.getElementById('simcard-select') as HTMLSelectElement;
+      select.innerHTML = '<option value="">— Seleccionar SIM —</option>';
+
+      if (json.success && json.data) {
+        json.data.forEach((sim: any) => {
+          const opt = document.createElement('option');
+          opt.value = sim.id;
+          opt.textContent = `${sim.numeroSimcard}${sim.numeroTelefono ? ` — ${sim.numeroTelefono}` : ''}${sim.operador ? ` (${sim.operador})` : ''}`;
+          select.appendChild(opt);
+        });
+      }
+    } catch {
+      console.error('Error loading SIMs');
+    }
+  }
+
+  // Collapsible Funcionario section
+  const toggleFunc = document.getElementById('toggle-funcionario') as HTMLInputElement;
+  const funcSection = document.getElementById('funcionario-section')!;
+
+  toggleFunc?.addEventListener('change', () => {
+    if (toggleFunc.checked) {
+      funcSection.classList.remove('collapsed');
+      funcSection.classList.add('expanded');
+    } else {
+      funcSection.classList.add('collapsed');
+      funcSection.classList.remove('expanded');
+    }
+  });
+
+  // Funcionario search with debounce
+  const funcSearch = document.getElementById('funcionario-search') as HTMLInputElement;
+  const funcResults = document.getElementById('funcionario-results')!;
+  const funcSelected = document.getElementById('funcionario-selected')!;
+  let funcTimeout: ReturnType<typeof setTimeout>;
+
+  funcSearch?.addEventListener('input', () => {
+    clearTimeout(funcTimeout);
+    const q = funcSearch.value.trim();
+
+    if (q.length < 2) {
+      funcResults.classList.add('hidden');
+      funcSearch.setAttribute('aria-expanded', 'false');
+      return;
+    }
+
+    funcTimeout = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/funcionarios?q=${encodeURIComponent(q)}`);
+        const json = await res.json();
+
+        if (json.success && json.data?.length > 0) {
+          funcResults.innerHTML = json.data
+            .map((f: any) => `
+              <div class="combobox-item" role="option" data-id="${f.id}" data-nombre="${f.nombre}" data-cargo="${f.cargo}" data-dep="${f.dependencia}">
+                <span class="name">${f.nombre}</span>
+                <span class="meta">${f.cargo} — ${f.dependencia}</span>
+              </div>
+            `).join('');
+
+          funcResults.classList.remove('hidden');
+          funcSearch.setAttribute('aria-expanded', 'true');
+
+          // Bind click events
+          funcResults.querySelectorAll('.combobox-item').forEach((item) => {
+            item.addEventListener('click', () => {
+              const el = item as HTMLElement;
+              selectFuncionario(
+                el.dataset.id!,
+                el.dataset.nombre!,
+                el.dataset.cargo!,
+                el.dataset.dep!,
+              );
+            });
+          });
+        } else {
+          funcResults.innerHTML = '<div class="p-3 text-sm text-[var(--color-text-muted)] text-center">No se encontraron resultados</div>';
+          funcResults.classList.remove('hidden');
+        }
+      } catch {
+        console.error('Error searching funcionarios');
+      }
+    }, 300);
+  });
+
+  function selectFuncionario(id: string, nombre: string, cargo: string, dep: string) {
+    (document.getElementById('func-id') as HTMLInputElement).value = id;
+    (document.getElementById('func-nombre-hidden') as HTMLInputElement).value = nombre;
+    document.getElementById('func-nombre')!.textContent = nombre;
+    document.getElementById('func-cargo')!.textContent = cargo;
+    document.getElementById('func-dependencia')!.textContent = dep;
+
+    funcSelected.classList.remove('hidden');
+    funcSearch.value = '';
+    funcResults.classList.add('hidden');
+    funcSearch.setAttribute('aria-expanded', 'false');
+  }
+
+  // Clear funcionario
+  document.getElementById('func-clear')?.addEventListener('click', () => {
+    (document.getElementById('func-id') as HTMLInputElement).value = '';
+    (document.getElementById('func-nombre-hidden') as HTMLInputElement).value = '';
+    funcSelected.classList.add('hidden');
+  });
+
+  // Close combobox on outside click
+  document.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+    if (!target.closest('#funcionario-search') && !target.closest('#funcionario-results')) {
+      funcResults.classList.add('hidden');
+      funcSearch?.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  // Form submission
+  const form = document.getElementById('celular-form') as HTMLFormElement;
+  const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = `<svg class="w-4 h-4 animate-spin" style="animation: spin 1s linear infinite" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Guardando...`;
+
+    try {
+      const formData = new FormData(form);
+
+      // 1. Create celular
+      const celularData = {
+        marca: formData.get('marca'),
+        modelo: formData.get('modelo'),
+        serial: formData.get('serial'),
+        imei: formData.get('imei'),
+        estado: formData.get('estado'),
+        observaciones: formData.get('observaciones') || '',
+      };
+
+      const celRes = await fetch('/api/celulares', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(celularData),
+      });
+
+      const celJson = await celRes.json();
+
+      if (!celJson.success) {
+        throw new Error(celJson.error?.message || 'Error al crear celular');
+      }
+
+      const celularId = celJson.data.id;
+      let simcardId: string | null = null;
+
+      // 2. Handle SIM if toggled
+      if (toggleSim.checked) {
+        const isNewSim = !simNewPanel.classList.contains('hidden');
+
+        if (isNewSim) {
+          const simData = {
+            numeroSimcard: formData.get('numeroSimcard'),
+            numeroTelefono: formData.get('numeroTelefono') || '',
+            operador: formData.get('operador') || '',
+            observaciones: formData.get('simObservaciones') || '',
+          };
+
+          if (simData.numeroSimcard) {
+            const simRes = await fetch('/api/simcards', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(simData),
+            });
+            const simJson = await simRes.json();
+            if (simJson.success) {
+              simcardId = simJson.data.id;
+            }
+          }
+        } else {
+          simcardId = (formData.get('simcardId') as string) || null;
+        }
+      }
+
+      // 3. Create assignment if SIM or funcionario
+      const funcionarioId = formData.get('funcionarioId') as string;
+      const funcionarioNombre = formData.get('funcionarioNombre') as string;
+
+      if (simcardId || funcionarioId) {
+        const asigRes = await fetch('/api/asignaciones', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            celularId,
+            simcardId: simcardId || undefined,
+            funcionarioId: funcionarioId || '',
+            funcionarioNombre: funcionarioNombre || '',
+          }),
+        });
+        await asigRes.json();
+      }
+
+      (window as any).showToast('Celular creado exitosamente', 'success');
+      setTimeout(() => {
+        window.location.href = '/celulares';
+      }, 1000);
+    } catch (err: any) {
+      (window as any).showToast(err.message || 'Error al guardar', 'error');
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Celular`;
+    }
+  });
+</script>
