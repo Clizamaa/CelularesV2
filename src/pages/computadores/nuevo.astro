@@ -23,14 +23,23 @@ import Button from '@/components/ui/Button.astro';
       </div>
 
       <form id="aio-form" class="space-y-6">
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div class="flex flex-col gap-1.5">
             <label class="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Marca</label>
             <input type="text" value="Lenovo" readonly class="input-base bg-[var(--color-bg-elevated)] cursor-not-allowed opacity-80" />
           </div>
           <div class="flex flex-col gap-1.5">
             <label class="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Modelo</label>
-            <input type="text" value="AIO 3" readonly class="input-base bg-[var(--color-bg-elevated)] cursor-not-allowed opacity-80" />
+            <div class="flex p-1 bg-[var(--color-bg-elevated)] rounded-xl border border-[var(--color-border-subtle)]">
+              <label class="flex-1">
+                <input type="radio" name="modelo" value="AIO 3" checked class="sr-only peer" />
+                <span class="flex items-center justify-center py-2 text-sm font-medium rounded-lg cursor-pointer transition-all peer-checked:bg-[var(--color-bg-surface)] peer-checked:text-[var(--color-accent)] peer-checked:shadow-sm">AIO 3</span>
+              </label>
+              <label class="flex-1">
+                <input type="radio" name="modelo" value="M75s" class="sr-only peer" />
+                <span class="flex items-center justify-center py-2 text-sm font-medium rounded-lg cursor-pointer transition-all peer-checked:bg-[var(--color-bg-surface)] peer-checked:text-[var(--color-accent)] peer-checked:shadow-sm">M75s</span>
+              </label>
+            </div>
           </div>
         </div>
 
@@ -109,13 +118,28 @@ import Button from '@/components/ui/Button.astro';
   if (scanBtn) {
     scanBtn.addEventListener('click', () => {
       console.log('Scan button clicked');
+      
+      // Get currently selected model
+      const modelRadio = form.querySelector('input[name="modelo"]:checked');
+      const model = modelRadio ? modelRadio.value : 'AIO 3';
+      
       if (window.openBarcodeScanner) {
         window.openBarcodeScanner({
           onScan: (code) => {
-            const trimmed = code.trim().substring(0, 8);
-            serialInput.value = trimmed;
+            const raw = code.trim();
+            let processed = '';
+            
+            if (model === 'M75s') {
+              // Take LAST 8 characters for M75s
+              processed = raw.slice(-8);
+            } else {
+              // Take FIRST 8 characters for others (AIO 3)
+              processed = raw.substring(0, 8);
+            }
+            
+            serialInput.value = processed;
             serialInput.focus();
-            if (window.showToast) window.showToast('Serial capturado: ' + trimmed, 'info');
+            if (window.showToast) window.showToast(`Serial capturado (${model}): ${processed}`, 'info');
           }
         });
       } else {
@@ -154,7 +178,7 @@ import Button from '@/components/ui/Button.astro';
 
     const data = {
       marca: 'Lenovo',
-      modelo: 'AIO 3',
+      modelo: formData.get('modelo'),
       serial: serial,
       observaciones: formData.get('observaciones'),
       estado: 'DISPONIBLE'
@@ -176,8 +200,8 @@ import Button from '@/components/ui/Button.astro';
       if (json.success) {
         if (window.showToast) window.showToast('✓ Registrado: ' + data.serial, 'success');
         
-        // Add to recent list
-        addToRecent(data.serial);
+        // Add to recent list with correct model
+        addToRecent(data.serial, data.modelo);
         
         // Brief delay before clearing so user can see what was sent
         serialInput.classList.add('border-[var(--color-status-disponible)]', 'bg-[oklch(from_var(--color-status-disponible)_l_c_h_/_5%)]');
@@ -204,7 +228,7 @@ import Button from '@/components/ui/Button.astro';
   const recentTbody = document.getElementById('recent-tbody');
   const emptyRow = document.getElementById('empty-row');
 
-  function addToRecent(serial) {
+  function addToRecent(serial, modelo) {
     if (emptyRow) emptyRow.remove();
     
     const now = new Date();
@@ -217,7 +241,7 @@ import Button from '@/components/ui/Button.astro';
       <td>
         <div class="flex flex-col">
           <span class="text-sm">Lenovo</span>
-          <span class="text-[10px] text-[var(--color-text-muted)]">AIO 3</span>
+          <span class="text-[10px] text-[var(--color-text-muted)]">${modelo}</span>
         </div>
       </td>
       <td>
