@@ -1,0 +1,531 @@
+---
+/**
+ * CameraScanner — Detecta marca y modelo desde la caja del equipo.
+ *
+ * FLUJO: Abre cámara → cuenta regresiva 3s → captura auto → OCR → match.
+ * Solo detecta marca y modelo. IMEI/serial se hacen con lector de barras.
+ */
+---
+
+<dialog id="camera-modal" class="camera-dialog">
+  <div class="camera-inner">
+    <div class="camera-header">
+      <h3 class="camera-title">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        Detectar Marca y Modelo
+      </h3>
+      <button type="button" id="camera-close" class="camera-close-btn" aria-label="Cerrar">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <!-- Camera view -->
+    <div class="camera-viewport" id="camera-viewport">
+      <video id="camera-video" autoplay playsinline muted></video>
+      <canvas id="camera-canvas" class="hidden"></canvas>
+      <div class="scan-frame" id="scan-frame">
+        <div class="scan-corner tl"></div>
+        <div class="scan-corner tr"></div>
+        <div class="scan-corner bl"></div>
+        <div class="scan-corner br"></div>
+        <div class="scan-line"></div>
+      </div>
+      <!-- Countdown overlay -->
+      <div class="countdown-overlay hidden" id="countdown-overlay">
+        <span class="countdown-number" id="countdown-number">3</span>
+      </div>
+      <!-- Flash effect -->
+      <div class="flash-overlay hidden" id="flash-overlay"></div>
+      <!-- Captured image -->
+      <img id="camera-preview" class="hidden camera-preview-img" alt="Captura" />
+    </div>
+
+    <!-- Steps indicator -->
+    <div class="camera-steps" id="camera-steps">
+      <div class="step active" id="step-1">
+        <span class="step-num">1</span>
+        <span class="step-label">Muestra la caja</span>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step" id="step-2">
+        <span class="step-num">2</span>
+        <span class="step-label">Captura auto</span>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step" id="step-3">
+        <span class="step-num">3</span>
+        <span class="step-label">Detecta datos</span>
+      </div>
+    </div>
+
+    <!-- Status -->
+    <div class="camera-status" id="camera-status">
+      <p class="status-text" id="camera-status-text">Enfoca el texto de la caja — captura automática en 3 segundos</p>
+    </div>
+
+    <!-- Progress -->
+    <div class="camera-progress hidden" id="camera-progress">
+      <div class="progress-bar"><div class="progress-fill" id="camera-progress-fill"></div></div>
+      <p class="progress-text" id="camera-progress-text">Procesando imagen...</p>
+    </div>
+
+    <!-- Results: marca, modelo, serial, imei -->
+    <div class="camera-results hidden" id="camera-results">
+      <div class="results-grid">
+        <div class="result-item" id="result-marca">
+          <span class="result-label">Marca</span>
+          <span class="result-value" id="result-marca-value">—</span>
+        </div>
+        <div class="result-item" id="result-modelo">
+          <span class="result-label">Modelo</span>
+          <span class="result-value" id="result-modelo-value">—</span>
+        </div>
+        <div class="result-item" id="result-serial">
+          <span class="result-label">Serie (S/N)</span>
+          <span class="result-value" id="result-serial-value">—</span>
+        </div>
+        <div class="result-item" id="result-imei">
+          <span class="result-label">IMEI</span>
+          <span class="result-value" id="result-imei-value">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Capture now (manual override) -->
+    <div class="camera-actions" id="camera-actions">
+      <button type="button" id="camera-capture-now" class="camera-btn-capture-now">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4" fill="currentColor"/></svg>
+        Capturar ahora
+      </button>
+    </div>
+
+    <div class="camera-actions hidden" id="camera-post-actions">
+      <button type="button" id="camera-retry" class="camera-btn-retry">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        Reintentar
+      </button>
+      <button type="button" id="camera-apply" class="camera-btn-apply">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Aplicar
+      </button>
+    </div>
+  </div>
+</dialog>
+
+<!-- Tesseract.js library -->
+<script is:inline src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+<style>
+  .camera-dialog {
+    background: var(--color-bg-surface);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 1.25rem;
+    padding: 0;
+    width: calc(100% - 2rem);
+    max-width: 32rem;
+    color: var(--color-text-primary);
+    box-shadow: 0 24px 80px oklch(0% 0 0 / 60%);
+    overflow: hidden;
+  }
+  .camera-inner { display: flex; flex-direction: column; }
+
+  .camera-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1rem 1.25rem; border-bottom: 1px solid var(--color-border-subtle);
+  }
+  .camera-title {
+    font-family: var(--font-display); font-weight: 700; font-size: 1rem;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .camera-close-btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 2rem; height: 2rem; border-radius: 0.5rem;
+    background: transparent; border: none; color: var(--color-text-secondary);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .camera-close-btn:hover { background: var(--color-bg-elevated); color: var(--color-text-primary); }
+
+  .camera-viewport {
+    position: relative; width: 100%; aspect-ratio: 4/3;
+    background: #000; overflow: hidden;
+  }
+  #camera-video { width: 100%; height: 100%; object-fit: cover; }
+  .camera-preview-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+  /* Scan frame */
+  .scan-frame { position: absolute; inset: 10%; pointer-events: none; }
+  .scan-corner { position: absolute; width: 1.5rem; height: 1.5rem; border-color: var(--color-accent); border-style: solid; border-width: 0; }
+  .scan-corner.tl { top: 0; left: 0; border-top-width: 3px; border-left-width: 3px; border-radius: 4px 0 0 0; }
+  .scan-corner.tr { top: 0; right: 0; border-top-width: 3px; border-right-width: 3px; border-radius: 0 4px 0 0; }
+  .scan-corner.bl { bottom: 0; left: 0; border-bottom-width: 3px; border-left-width: 3px; border-radius: 0 0 0 4px; }
+  .scan-corner.br { bottom: 0; right: 0; border-bottom-width: 3px; border-right-width: 3px; border-radius: 0 0 4px 0; }
+  .scan-line {
+    position: absolute; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--color-accent), transparent);
+    animation: scanLineMove 2.5s ease-in-out infinite;
+  }
+  @keyframes scanLineMove {
+    0%, 100% { top: 10%; opacity: 0.3; }
+    50% { top: 85%; opacity: 1; }
+  }
+
+  /* Countdown */
+  .countdown-overlay {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: oklch(0% 0 0 / 40%);
+    z-index: 5;
+  }
+  .countdown-number {
+    font-family: var(--font-display);
+    font-size: 5rem;
+    font-weight: 800;
+    color: white;
+    text-shadow: 0 0 40px oklch(from var(--color-accent) l c h / 60%);
+    animation: countdownPulse 1s ease-in-out;
+  }
+  @keyframes countdownPulse {
+    0% { transform: scale(1.5); opacity: 0; }
+    30% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(0.8); opacity: 0.5; }
+  }
+
+  /* Flash */
+  .flash-overlay {
+    position: absolute; inset: 0;
+    background: white;
+    z-index: 6;
+    animation: flashEffect 0.3s ease-out forwards;
+  }
+  @keyframes flashEffect {
+    0% { opacity: 0.8; }
+    100% { opacity: 0; }
+  }
+
+  /* Steps */
+  .camera-steps {
+    display: flex; align-items: center; justify-content: center;
+    gap: 0.5rem; padding: 0.875rem 1.25rem;
+    border-bottom: 1px solid oklch(100% 0 0 / 4%);
+  }
+  .step {
+    display: flex; align-items: center; gap: 0.375rem;
+    font-size: 0.75rem; color: var(--color-text-muted);
+    transition: color 0.3s;
+  }
+  .step.active { color: var(--color-accent); }
+  .step.done { color: var(--color-status-disponible); }
+  .step-num {
+    display: flex; align-items: center; justify-content: center;
+    width: 1.25rem; height: 1.25rem; border-radius: 9999px;
+    font-size: 0.625rem; font-weight: 700;
+    border: 1.5px solid currentColor;
+    transition: all 0.3s;
+  }
+  .step.active .step-num { background: var(--color-accent); color: var(--color-bg-base); border-color: var(--color-accent); }
+  .step.done .step-num { background: var(--color-status-disponible); color: white; border-color: var(--color-status-disponible); }
+  .step-label { font-weight: 500; }
+  .step-arrow { color: var(--color-text-muted); font-size: 0.75rem; }
+
+  .camera-status { padding: 0.75rem 1.25rem; text-align: center; }
+  .status-text { font-size: 0.8125rem; font-weight: 500; color: var(--color-text-secondary); }
+
+  .camera-progress { padding: 0.5rem 1.25rem 0.75rem; }
+  .progress-bar { height: 0.375rem; background: var(--color-bg-elevated); border-radius: 9999px; overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--color-accent), var(--color-accent-teal)); border-radius: 9999px; transition: width 0.3s; width: 0%; }
+  .progress-text { font-size: 0.75rem; color: var(--color-text-secondary); text-align: center; margin-top: 0.375rem; }
+
+  .camera-results { padding: 0 1.25rem 0.5rem; }
+  .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+  .result-item {
+    padding: 0.75rem; border-radius: 0.75rem;
+    background: var(--color-bg-elevated); border: 1px solid var(--color-border-subtle);
+    display: flex; flex-direction: column; gap: 0.25rem; transition: all 0.3s;
+  }
+  .result-item.found {
+    border-color: oklch(from var(--color-status-disponible) l c h / 40%);
+    background: oklch(from var(--color-status-disponible) l c h / 5%);
+  }
+  .result-label { font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-muted); }
+  .result-value { font-size: 0.875rem; font-weight: 500; color: var(--color-text-primary); }
+
+  .camera-actions { display: flex; gap: 0.75rem; padding: 0.75rem 1.25rem 1rem; }
+  .camera-btn-capture-now {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+    padding: 0.625rem; border-radius: 0.75rem; font-size: 0.8125rem; font-weight: 500;
+    background: var(--color-bg-elevated); color: var(--color-text-secondary);
+    border: 1px solid var(--color-border-subtle); cursor: pointer; transition: all 0.15s;
+  }
+  .camera-btn-capture-now:hover { border-color: var(--color-accent); color: var(--color-accent); }
+
+  .camera-btn-retry {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+    padding: 0.625rem; border-radius: 0.75rem; font-size: 0.8125rem; font-weight: 500;
+    background: var(--color-bg-elevated); color: var(--color-text-primary);
+    border: 1px solid var(--color-border-subtle); cursor: pointer; transition: all 0.15s;
+  }
+  .camera-btn-retry:hover { border-color: var(--color-border-accent); }
+
+  .camera-btn-apply {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+    padding: 0.625rem; border-radius: 0.75rem; font-size: 0.8125rem; font-weight: 600;
+    background: var(--color-status-disponible); color: white;
+    border: none; cursor: pointer; transition: all 0.15s;
+  }
+  .camera-btn-apply:hover { filter: brightness(1.1); }
+</style>
+
+<script is:inline>
+(function() {
+  const modal = document.getElementById('camera-modal');
+  const video = document.getElementById('camera-video');
+  const canvas = document.getElementById('camera-canvas');
+  const preview = document.getElementById('camera-preview');
+  const statusDiv = document.getElementById('camera-status');
+  const statusText = document.getElementById('camera-status-text');
+  const progressDiv = document.getElementById('camera-progress');
+  const progressFill = document.getElementById('camera-progress-fill');
+  const progressText = document.getElementById('camera-progress-text');
+  const resultsDiv = document.getElementById('camera-results');
+  const actionsDiv = document.getElementById('camera-actions');
+  const postActionsDiv = document.getElementById('camera-post-actions');
+  const countdownOverlay = document.getElementById('countdown-overlay');
+  const countdownNumber = document.getElementById('countdown-number');
+  const flashOverlay = document.getElementById('flash-overlay');
+  const scanFrame = document.getElementById('scan-frame');
+
+  let mediaStream = null;
+  let currentResult = null;
+  let currentCallback = null;
+  let countdownTimer = null;
+  let autoTimer = null;
+
+  window.openCameraScanner = function(options = {}) {
+    currentCallback = options.onResult || null;
+    currentResult = null;
+    resetUI();
+    modal.showModal();
+    startCamera();
+  };
+
+  function resetUI() {
+    video.classList.remove('hidden');
+    preview.classList.add('hidden');
+    statusDiv.classList.remove('hidden');
+    progressDiv.classList.add('hidden');
+    resultsDiv.classList.add('hidden');
+    actionsDiv.classList.remove('hidden');
+    postActionsDiv.classList.add('hidden');
+    countdownOverlay.classList.add('hidden');
+    flashOverlay.classList.add('hidden');
+    scanFrame.classList.remove('hidden');
+    statusText.textContent = 'Enfoca el texto de la caja — captura automática en 3 segundos';
+
+    // Reset steps
+    document.getElementById('step-1').className = 'step active';
+    document.getElementById('step-2').className = 'step';
+    document.getElementById('step-3').className = 'step';
+
+    ['marca', 'modelo', 'serial', 'imei'].forEach(k => {
+      document.getElementById('result-' + k)?.classList.remove('found');
+      const v = document.getElementById('result-' + k + '-value');
+      if (v) v.textContent = '—';
+    });
+  }
+
+  async function startCamera() {
+    try {
+      mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 960 } },
+      });
+      video.srcObject = mediaStream;
+      video.onloadeddata = () => startCountdown(); // Auto-countdown once stream is ready
+    } catch (err) {
+      statusText.textContent = '⚠ No se pudo acceder a la cámara — verifica permisos';
+    }
+  }
+
+  function stopCamera() {
+    if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+    video.srcObject = null;
+    clearTimers();
+  }
+
+  function clearTimers() {
+    if (countdownTimer) clearInterval(countdownTimer);
+    if (autoTimer) clearTimeout(autoTimer);
+    countdownTimer = null;
+    autoTimer = null;
+  }
+
+  // ── Auto-countdown 3 seconds ──
+  function startCountdown() {
+    let seconds = 3;
+    countdownOverlay.classList.remove('hidden');
+    countdownNumber.textContent = seconds;
+    countdownNumber.style.animation = 'none';
+    void countdownNumber.offsetHeight; // Trigger reflow
+    countdownNumber.style.animation = 'countdownPulse 1s ease-in-out';
+
+    statusText.textContent = 'Mantén la caja enfocada...';
+    document.getElementById('step-1').className = 'step active';
+
+    countdownTimer = setInterval(() => {
+      seconds--;
+      if (seconds > 0) {
+        countdownNumber.textContent = seconds;
+        countdownNumber.style.animation = 'none';
+        void countdownNumber.offsetHeight;
+        countdownNumber.style.animation = 'countdownPulse 1s ease-in-out';
+      } else {
+        clearInterval(countdownTimer);
+        countdownTimer = null;
+        capturePhoto();
+      }
+    }, 1000);
+  }
+
+  // ── Capture photo ──
+  function capturePhoto() {
+    if (!video.srcObject) return;
+
+    // Flash effect
+    countdownOverlay.classList.add('hidden');
+    flashOverlay.classList.remove('hidden');
+    setTimeout(() => flashOverlay.classList.add('hidden'), 300);
+
+    // Capture to canvas
+    const ctx = canvas.getContext('2d');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0);
+
+    const dataUrl = canvas.toDataURL('image/png');
+    preview.src = dataUrl;
+    preview.classList.remove('hidden');
+    video.classList.add('hidden');
+    scanFrame.classList.add('hidden');
+    stopCamera();
+
+    // Update steps
+    document.getElementById('step-1').className = 'step done';
+    document.getElementById('step-2').className = 'step active';
+
+    // Switch to processing
+    actionsDiv.classList.add('hidden');
+    statusDiv.classList.add('hidden');
+    progressDiv.classList.remove('hidden');
+    progressFill.style.width = '10%';
+    progressText.textContent = 'Cargando reconocimiento de texto...';
+
+    processImage(dataUrl);
+  }
+
+  // ── Manual capture (skip countdown) ──
+  document.getElementById('camera-capture-now')?.addEventListener('click', () => {
+    clearTimers();
+    capturePhoto();
+  });
+
+  // ── OCR + Match ──
+  async function processImage(dataUrl) {
+    try {
+      progressFill.style.width = '20%';
+      progressText.textContent = 'Iniciando OCR...';
+
+      // Use global Tesseract (loaded via script tag)
+      if (typeof Tesseract === 'undefined') {
+        throw new Error('Tesseract.js no cargado');
+      }
+
+      progressFill.style.width = '35%';
+      progressText.textContent = 'Leyendo texto de la imagen...';
+
+      const result = await Tesseract.recognize(dataUrl, 'spa+eng', {
+        logger: (m) => {
+          if (m.status === 'recognizing text') {
+            const pct = Math.round(35 + m.progress * 40);
+            progressFill.style.width = pct + '%';
+            progressText.textContent = 'Reconociendo texto... ' + Math.round(m.progress * 100) + '%';
+          }
+        },
+      });
+
+      console.log('[Camera Scanner] Raw OCR Text:', result.data.text);
+
+      document.getElementById('step-2').className = 'step done';
+      document.getElementById('step-3').className = 'step active';
+
+      progressFill.style.width = '85%';
+      progressText.textContent = 'Buscando marca y modelo...';
+
+      const res = await fetch('/api/ocr/match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: result.data.text }),
+      });
+      const matchData = await res.json();
+
+      progressFill.style.width = '100%';
+
+      if (matchData.success) {
+        currentResult = matchData.data;
+        document.getElementById('step-3').className = 'step done';
+        showResults(matchData.data);
+      } else {
+        progressText.textContent = 'No se pudo analizar';
+        setTimeout(() => { progressDiv.classList.add('hidden'); postActionsDiv.classList.remove('hidden'); }, 800);
+      }
+    } catch (err) {
+      console.error('OCR error:', err);
+      progressText.textContent = 'Error al procesar — reintenta';
+      setTimeout(() => { progressDiv.classList.add('hidden'); postActionsDiv.classList.remove('hidden'); }, 800);
+    }
+  }
+
+  function showResults(data) {
+    setTimeout(() => {
+      progressDiv.classList.add('hidden');
+      resultsDiv.classList.remove('hidden');
+      postActionsDiv.classList.remove('hidden');
+
+      ['marca', 'modelo', 'serial', 'imei'].forEach(key => {
+        const item = document.getElementById('result-' + key);
+        const val = document.getElementById('result-' + key + '-value');
+        if (val) {
+          if (data[key]) { 
+            val.textContent = data[key]; 
+            item?.classList.add('found'); 
+          } else { 
+            val.textContent = 'No detectado'; 
+            item?.classList.remove('found'); 
+          }
+        }
+      });
+
+      const foundCount = ['marca', 'modelo', 'serial', 'imei'].filter(k => data[k]).length;
+      if (window.showToast) {
+        if (foundCount >= 3) window.showToast('✓ Datos detectados correctamente', 'success');
+        else if (foundCount > 0) window.showToast(`Se detectaron ${foundCount} datos — puedes reintentar o aplicar`, 'info');
+        else window.showToast('No se detectaron datos — reintenta con mejor enfoque', 'error');
+      }
+    }, 400);
+  }
+
+  // Apply
+  document.getElementById('camera-apply')?.addEventListener('click', () => {
+    if (currentResult && currentCallback) currentCallback(currentResult);
+    closeModal();
+  });
+
+  // Retry
+  document.getElementById('camera-retry')?.addEventListener('click', () => {
+    resetUI();
+    startCamera();
+  });
+
+  function closeModal() { stopCamera(); modal.close(); }
+  document.getElementById('camera-close')?.addEventListener('click', closeModal);
+  modal?.addEventListener('cancel', () => stopCamera());
+})();
+</script>

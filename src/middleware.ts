@@ -32,7 +32,10 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return new Response(
       JSON.stringify({
         success: false,
-        error: { message: 'Error interno del servidor' },
+        error: { 
+          message: 'Error interno del servidor',
+          debug: error instanceof Error ? error.message : String(error)
+        },
       }),
       {
         status: 500,

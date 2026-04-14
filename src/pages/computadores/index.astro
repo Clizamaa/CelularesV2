@@ -1,0 +1,221 @@
+---
+import BaseLayout from '@/components/layout/BaseLayout.astro';
+import Header from '@/components/layout/Header.astro';
+import Badge from '@/components/ui/Badge.astro';
+import Button from '@/components/ui/Button.astro';
+import { prisma } from '@/lib/prisma';
+import { formatDate } from '@/lib/utils/format';
+
+const url = Astro.url;
+const q = url.searchParams.get('q') ?? '';
+const estado = url.searchParams.get('estado') ?? '';
+const page = Number(url.searchParams.get('page') ?? 1);
+const limit = 10;
+
+import { getComputadores } from '@/lib/services/computadores.service';
+
+const where: any = {
+  ...(estado && { estado }),
+  ...(q && {
+    OR: [
+      { marca: { contains: q } },
+      { modelo: { contains: q } },
+      { serial: { contains: q } },
+    ],
+  }),
+};
+
+const [computadores, total] = await Promise.all([
+  getComputadores(where),
+  prisma.computador.count({ where }),
+]);
+
+const totalPages = Math.ceil(total / limit);
+const estados = ['', 'DISPONIBLE', 'ASIGNADO', 'MANTENIMIENTO', 'BAJA'];
+const estadoLabels: Record<string, string> = {
+  '': 'Todos',
+  DISPONIBLE: 'Disponibles',
+  ASIGNADO: 'Asignados',
+  MANTENIMIENTO: 'Mantenimiento',
+  BAJA: 'Baja',
+};
+---
+
+<BaseLayout title="Computadores — CelularES">
+  <Header
+    title="Computadores All in One"
+    breadcrumbs={[{ label: 'Dashboard', href: '/' }, { label: 'Computadores' }]}
+  >
+    <div class="flex gap-2">
+      <Button href="/api/computadores/export" variant="outline" size="sm">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Exportar Excel
+      </Button>
+      <Button href="/computadores/nuevo" variant="primary" size="sm">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Nuevo Computador
+      </Button>
+    </div>
+  </Header>
+
+  <main class="p-6 lg:p-8 space-y-6 animate-fade-in">
+    <!-- Filters -->
+    <div class="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+      <div class="flex flex-wrap gap-2" id="filter-pills">
+        {estados.map((e) => (
+          <button
+            class={`filter-pill ${estado === e ? 'active' : ''}`}
+            data-estado={e}
+          >
+            {estadoLabels[e]}
+          </button>
+        ))}
+      </div>
+
+      <div class="flex gap-2 w-full sm:w-auto">
+        <div class="relative flex-1 sm:w-72">
+          <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input
+            type="text"
+            id="search-input"
+            placeholder="Buscar por marca, modelo, serial..."
+            value={q}
+            class="input-base pl-10 text-sm"
+          />
+        </div>
+      </div>
+    </div>
+
+    <!-- Results count -->
+    <p class="text-sm text-[var(--color-text-secondary)]">
+      {total} {total === 1 ? 'resultado' : 'resultados'}
+      {q && <span> para "<strong class="text-[var(--color-text-primary)]">{q}</strong>"</span>}
+    </p>
+
+    <!-- Table -->
+    <div class="card-surface overflow-hidden">
+      {computadores.length > 0 ? (
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Marca / Modelo</th>
+                <th>Serial</th>
+                <th>Estado</th>
+                <th>Funcionario</th>
+                <th>F. Registro</th>
+                <th class="text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {computadores.map((comp) => (
+                <tr>
+                  <td>
+                    <div class="flex flex-col">
+                      <span class="font-medium text-[var(--color-text-primary)]">{comp.marca}</span>
+                      <span class="text-xs text-[var(--color-text-secondary)]">{comp.modelo}</span>
+                    </div>
+                  </td>
+                  <td class="font-mono text-sm text-[var(--color-text-secondary)]">{comp.serial}</td>
+                  <td><Badge status={comp.estado} size="sm" /></td>
+                  <td class="text-sm">
+                    {comp.asignacion?.funcionarioNombre ? (
+                      <span class="text-[var(--color-text-primary)]">{comp.asignacion.funcionarioNombre}</span>
+                    ) : (
+                      <span class="text-[var(--color-text-muted)]">Sin asignar</span>
+                    )}
+                  </td>
+                  <td class="text-sm text-[var(--color-text-secondary)]">{formatDate(comp.createdAt)}</td>
+                  <td>
+                    <div class="flex items-center justify-end gap-1">
+                      <button class="action-btn" title="Ver detalle">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      </button>
+                      <button class="action-btn-danger delete-btn" data-id={comp.id} data-name={`${comp.marca} ${comp.modelo} (${comp.serial})`} title="Eliminar">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div class="empty-state py-16">
+          <svg class="w-14 h-14 text-[var(--color-text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          <p class="font-medium text-lg">No se encontraron computadores</p>
+          <p class="text-sm text-[var(--color-text-muted)]">
+            {q ? 'Intenta con otros términos de búsqueda' : 'Comienza agregando un nuevo AIO'}
+          </p>
+        </div>
+      )}
+    </div>
+  </main>
+</BaseLayout>
+
+<script is:inline>
+  // Filter pills logic
+  document.querySelectorAll('.filter-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      const estado = pill.dataset.estado;
+      const url = new URL(window.location.href);
+      if (estado) url.searchParams.set('estado', estado);
+      else url.searchParams.delete('estado');
+      url.searchParams.set('page', '1');
+      window.location.href = url.toString();
+    });
+  });
+
+  // Search logic
+  const searchInput = document.getElementById('search-input');
+  searchInput?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      const q = searchInput.value.trim();
+      const url = new URL(window.location.href);
+      if (q) url.searchParams.set('q', q);
+      else url.searchParams.delete('q');
+      url.searchParams.set('page', '1');
+      window.location.href = url.toString();
+    }
+  });
+
+  // Delete buttons logic
+  document.querySelectorAll('.delete-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.id;
+      const name = btn.dataset.name;
+
+      if (window.confirmAction) {
+        const confirmed = await window.confirmAction({
+          title: '¿Eliminar computador?',
+          message: `Se eliminará permanentemente "${name}" y su registro de asignación. Esta acción no se puede deshacer.`,
+          confirmText: 'Eliminar Equipo',
+          variant: 'danger'
+        });
+
+        if (!confirmed) return;
+
+        try {
+          const res = await fetch(`/api/computadores/${id}`, { method: 'DELETE' });
+          const json = await res.json();
+
+          if (json.success) {
+            if (window.showToast) window.showToast('Computador eliminado correctamente', 'success');
+            setTimeout(() => window.location.reload(), 1000);
+          } else {
+            if (window.showToast) window.showToast('Error: ' + (json.error?.message || 'No se pudo eliminar'), 'error');
+          }
+        } catch (err) {
+          if (window.showToast) window.showToast('Error de conexión con el servidor', 'error');
+        }
+      } else {
+        // Fallback for native confirm if custom dialog fails
+        if (confirm(`¿Estás seguro de eliminar ${name}?`)) {
+           fetch(`/api/computadores/${id}`, { method: 'DELETE' })
+             .then(() => window.location.reload());
+        }
+      }
+    });
+  });
+</script>

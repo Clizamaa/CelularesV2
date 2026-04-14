@@ -17,7 +17,6 @@ model Celular {
   estado        EstadoCelular @default(DISPONIBLE)
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
-
   asignacion    Asignacion?
 }
 
@@ -30,7 +29,6 @@ model Simcard {
   estado         EstadoSimcard @default(DISPONIBLE)
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
-
   asignacion     Asignacion?
 }
 
@@ -44,12 +42,58 @@ model Asignacion {
   fechaDevolucion   DateTime?
   activa            Boolean   @default(true)
   observaciones     String?   @db.Text
-
-  celular  Celular  @relation(fields: [celularId], references: [id])
-  simcard  Simcard? @relation(fields: [simcardId], references: [id])
+  celular           Celular   @relation(fields: [celularId], references: [id])
+  simcard           Simcard?  @relation(fields: [simcardId], references: [id])
 
   @@index([celularId])
   @@index([simcardId])
+  @@index([funcionarioId])
+}
+
+model Marca {
+  id        String   @id @default(uuid())
+  nombre    String   @unique @db.VarChar(50)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  modelos   Modelo[]
+}
+
+model Modelo {
+  id        String   @id @default(uuid())
+  nombre    String   @db.VarChar(100)
+  marcaId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  marca     Marca    @relation(fields: [marcaId], references: [id], onDelete: Cascade)
+
+  @@unique([marcaId, nombre])
+  @@index([marcaId])
+}
+
+model Computador {
+  id              String           @id @default(uuid())
+  marca           String           @db.VarChar(50)
+  modelo          String           @db.VarChar(100)
+  serial          String           @unique @db.VarChar(50)
+  especificaciones String?         @db.Text
+  observaciones   String?          @db.Text
+  estado          EstadoComputador @default(DISPONIBLE)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  asignacion      AsignacionAIO?
+}
+
+model AsignacionAIO {
+  id                String      @id @default(uuid())
+  computadorId      String      @unique
+  funcionarioId     String?     @db.VarChar(100)
+  funcionarioNombre String?     @db.VarChar(200)
+  fechaAsignacion   DateTime    @default(now())
+  fechaDevolucion   DateTime?
+  activa            Boolean     @default(true)
+  computador        Computador  @relation(fields: [computadorId], references: [id])
+
+  @@index([computadorId])
   @@index([funcionarioId])
 }
 
@@ -60,30 +104,15 @@ enum EstadoCelular {
   BAJA
 }
 
-model Marca {
-  id        String   @id @default(uuid())
-  nombre    String   @unique @db.VarChar(50)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  modelos   Modelo[]
-}
-
-model Modelo {
-  id        String   @id @default(uuid())
-  nombre    String   @db.VarChar(100)
-  marcaId   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  marca     Marca    @relation(fields: [marcaId], references: [id], onDelete: Cascade)
-
-  @@unique([marcaId, nombre])
-  @@index([marcaId])
-}
-
 enum EstadoSimcard {
   DISPONIBLE
   ASIGNADA
   SUSPENDIDA
+}
+
+enum EstadoComputador {
+  DISPONIBLE
+  ASIGNADO
+  MANTENIMIENTO
+  BAJA
 }

@@ -1,0 +1,230 @@
+---
+import BaseLayout from '@/components/layout/BaseLayout.astro';
+import Header from '@/components/layout/Header.astro';
+import Button from '@/components/ui/Button.astro';
+---
+
+<BaseLayout title="Nuevo Computador — CelularES">
+  <Header
+    title="Ingreso de Computadores AIO"
+    breadcrumbs={[{ label: 'Dashboard', href: '/' }, { label: 'Computadores', href: '/computadores' }, { label: 'Nuevo' }]}
+  />
+
+  <main class="p-6 lg:p-8 max-w-2xl mx-auto space-y-8 animate-fade-in">
+    <div class="card-surface p-6 sm:p-8">
+      <div class="flex items-center gap-4 mb-8">
+        <div class="w-12 h-12 rounded-2xl bg-[oklch(from_var(--color-accent)_l_c_h_/_10%)] flex items-center justify-center text-[var(--color-accent)]">
+          <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        </div>
+        <div>
+          <h2 class="text-xl font-display font-bold">Registro Rápido AIO</h2>
+          <p class="text-sm text-[var(--color-text-secondary)]">Escanea el número de serie para ingresar el equipo</p>
+        </div>
+      </div>
+
+      <form id="aio-form" class="space-y-6">
+        <div class="grid grid-cols-2 gap-4">
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Marca</label>
+            <input type="text" value="Lenovo" readonly class="input-base bg-[var(--color-bg-elevated)] cursor-not-allowed opacity-80" />
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Modelo</label>
+            <input type="text" value="AIO 3" readonly class="input-base bg-[var(--color-bg-elevated)] cursor-not-allowed opacity-80" />
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <label for="serial" class="text-sm font-medium text-[var(--color-text-secondary)] flex items-center justify-between">
+            <span>Número de Serie (S/N)</span>
+            <span class="text-[var(--color-accent)] text-[10px] font-bold uppercase tracking-tighter">Campo obligatorio</span>
+          </label>
+          <div class="flex gap-2">
+            <input
+              id="serial"
+              name="serial"
+              type="text"
+              maxlength="8"
+              placeholder="8 caracteres..."
+              required
+              autofocus
+              class="input-base flex-1 text-lg font-mono focus:ring-2 focus:ring-[var(--color-accent)]"
+            />
+            <button type="button" class="scan-trigger-btn" id="scan-btn" title="Escanear">
+              <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M3 5v-2h4"/><path d="M17 3h4v2"/><path d="M21 19v2h-4"/><path d="M7 21H3v-2"/><line x1="7" y1="8" x2="7" y2="16" stroke-width="2"/><line x1="10" y1="8" x2="10" y2="16"/><line x1="13" y1="8" x2="13" y2="16" stroke-width="2.5"/><line x1="16" y1="8" x2="16" y2="16"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-1.5 pt-2">
+          <label for="observaciones" class="text-sm font-medium text-[var(--color-text-secondary)]">Observaciones adicionales</label>
+          <textarea id="observaciones" name="observaciones" rows="2" class="input-base resize-none" placeholder="Opcional..."></textarea>
+        </div>
+
+        <div class="pt-4 flex gap-3">
+          <Button type="submit" variant="primary" size="lg" class="flex-1 shrink-0" id="submit-btn">
+            Guardar Computador
+          </Button>
+          <Button href="/computadores" variant="ghost" size="lg">Cancelar</Button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Recent entries table -->
+    <div class="space-y-3">
+      <h3 class="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)] ml-1 flex items-center justify-between">
+        <span>Últimos ingresos en esta sesión</span>
+        <a href="/computadores" class="hover:text-[var(--color-accent)] transition-colors">Ver inventario completo →</a>
+      </h3>
+      <div class="card-surface overflow-hidden">
+        <table class="data-table" id="recent-table">
+          <thead>
+            <tr>
+              <th>Serial (8 char)</th>
+              <th>Marca / Modelo</th>
+              <th>Estado</th>
+              <th class="text-right">Hora</th>
+            </tr>
+          </thead>
+          <tbody id="recent-tbody">
+            <tr id="empty-row">
+              <td colspan="4" class="text-center py-8 text-[var(--color-text-muted)] italic">
+                No hay ingresos registrados todavía...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</BaseLayout>
+
+<script is:inline>
+  const form = document.getElementById('aio-form');
+  const serialInput = document.getElementById('serial');
+  const submitBtn = document.getElementById('submit-btn');
+
+  // Barcode scanner integration
+  const scanBtn = document.getElementById('scan-btn');
+  if (scanBtn) {
+    scanBtn.addEventListener('click', () => {
+      console.log('Scan button clicked');
+      if (window.openBarcodeScanner) {
+        window.openBarcodeScanner({
+          onScan: (code) => {
+            const trimmed = code.trim().substring(0, 8);
+            serialInput.value = trimmed;
+            serialInput.focus();
+            if (window.showToast) window.showToast('Serial capturado: ' + trimmed, 'info');
+          }
+        });
+      } else {
+        console.error('window.openBarcodeScanner is not defined');
+        if (window.showToast) window.showToast('Error: Escáner no inicializado', 'error');
+      }
+    });
+  }
+
+  // Also truncate if typed manually
+  serialInput.addEventListener('input', () => {
+    if (serialInput.value.length > 8) {
+      serialInput.value = serialInput.value.substring(0, 8);
+    }
+  });
+
+  // Hotkey for scanning if global listener exists
+  window.addEventListener('keydown', (e) => {
+    // If user presses F2 or similar, trigger scan
+    if (e.key === 'F2') {
+      document.getElementById('scan-btn').click();
+    }
+  });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(form);
+    const serialValue = formData.get('serial');
+    const serial = (typeof serialValue === 'string' ? serialValue : '').trim().substring(0, 8);
+    
+    if (!serial) {
+      if (window.showToast) window.showToast('El serial no puede estar vacío', 'error');
+      return;
+    }
+
+    const data = {
+      marca: 'Lenovo',
+      modelo: 'AIO 3',
+      serial: serial,
+      observaciones: formData.get('observaciones'),
+      estado: 'DISPONIBLE'
+    };
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Guardando...';
+
+    try {
+      const res = await fetch('/api/computadores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      
+      const json = await res.json();
+      console.log('API Response:', json);
+      
+      if (json.success) {
+        if (window.showToast) window.showToast('✓ Registrado: ' + data.serial, 'success');
+        
+        // Add to recent list
+        addToRecent(data.serial);
+        
+        // Brief delay before clearing so user can see what was sent
+        serialInput.classList.add('border-[var(--color-status-disponible)]', 'bg-[oklch(from_var(--color-status-disponible)_l_c_h_/_5%)]');
+        
+        setTimeout(() => {
+          serialInput.value = '';
+          document.getElementById('observaciones').value = '';
+          serialInput.classList.remove('border-[var(--color-status-disponible)]', 'bg-[oklch(from_var(--color-status-disponible)_l_c_h_/_5%)]');
+          serialInput.focus();
+        }, 500);
+      } else {
+        const msg = json.error?.message || json.message || 'Error desconocido';
+        if (window.showToast) window.showToast('Error: ' + msg, 'error');
+        console.error('Save failed:', json.error);
+      }
+    } catch (err) {
+      if (window.showToast) window.showToast('Error de conexión', 'error');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Guardar Computador';
+    }
+  });
+
+  const recentTbody = document.getElementById('recent-tbody');
+  const emptyRow = document.getElementById('empty-row');
+
+  function addToRecent(serial) {
+    if (emptyRow) emptyRow.remove();
+    
+    const now = new Date();
+    const time = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+
+    const tr = document.createElement('tr');
+    tr.className = 'animate-in fade-in slide-in-from-right-4 duration-500';
+    tr.innerHTML = `
+      <td class="font-mono font-bold text-[var(--color-accent)]">${serial}</td>
+      <td>
+        <div class="flex flex-col">
+          <span class="text-sm">Lenovo</span>
+          <span class="text-[10px] text-[var(--color-text-muted)]">AIO 3</span>
+        </div>
+      </td>
+      <td>
+        <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-[var(--color-status-disponible-bg)] text-[var(--color-status-disponible)]">DISPONIBLE</span>
+      </td>
+      <td class="text-right text-xs text-[var(--color-text-muted)]">${time}</td>
+    `;
+    recentTbody.prepend(tr);
+  }
+</script>

@@ -26,7 +26,12 @@ const marcasJson = JSON.stringify(marcasDB.map(m => ({
       { label: 'Celulares', href: '/celulares' },
       { label: 'Nuevo' },
     ]}
-  />
+  >
+    <button type="button" id="camera-scan-btn" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl transition-all duration-200 bg-[oklch(from_var(--color-accent-teal)_l_c_h_/_12%)] text-[var(--color-accent-teal)] border border-[oklch(from_var(--color-accent-teal)_l_c_h_/_25%)] hover:bg-[oklch(from_var(--color-accent-teal)_l_c_h_/_20%)] hover:shadow-[0_0_16px_var(--color-accent-glow)] cursor-pointer">
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      Escanear caja
+    </button>
+  </Header>
 
   <main class="p-6 lg:p-8 max-w-4xl animate-fade-in">
     <form id="celular-form" class="space-y-8" novalidate>
@@ -71,9 +76,14 @@ const marcasJson = JSON.stringify(marcasDB.map(m => ({
             </label>
             <div class="flex gap-2">
               <input id="serial" name="serial" type="text" placeholder="Mínimo 5 caracteres" required class="input-base flex-1" />
-              <button type="button" class="scan-trigger-btn" onclick="window.openBarcodeScanner({ targetField: 'serial' })" title="Escanear código de barras">
-                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M3 5v-2h4"/><path d="M17 3h4v2"/><path d="M21 19v2h-4"/><path d="M7 21H3v-2"/><line x1="7" y1="8" x2="7" y2="16" stroke-width="2"/><line x1="10" y1="8" x2="10" y2="16"/><line x1="13" y1="8" x2="13" y2="16" stroke-width="2.5"/><line x1="16" y1="8" x2="16" y2="16"/></svg>
-              </button>
+              <div class="flex gap-1">
+                <button type="button" class="scan-trigger-btn cam" onclick="document.getElementById('camera-scan-btn').click()" title="Escanear con Cámara">
+                  <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                </button>
+                <button type="button" class="scan-trigger-btn" onclick="window.openBarcodeScanner({ targetField: 'serial' })" title="Escanear código de barras">
+                  <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M3 5v-2h4"/><path d="M17 3h4v2"/><path d="M21 19v2h-4"/><path d="M7 21H3v-2"/><line x1="7" y1="8" x2="7" y2="16" stroke-width="2"/><line x1="10" y1="8" x2="10" y2="16"/><line x1="13" y1="8" x2="13" y2="16" stroke-width="2.5"/><line x1="16" y1="8" x2="16" y2="16"/></svg>
+                </button>
+              </div>
             </div>
             <p class="text-xs text-[var(--color-text-muted)]">Identificador único del equipo</p>
           </div>
@@ -93,11 +103,19 @@ const marcasJson = JSON.stringify(marcasDB.map(m => ({
                 class="input-base flex-1"
                 inputmode="numeric"
               />
-              <button type="button" class="scan-trigger-btn" onclick="window.openBarcodeScanner({ targetField: 'imei' })" title="Escanear código de barras">
-                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M3 5v-2h4"/><path d="M17 3h4v2"/><path d="M21 19v2h-4"/><path d="M7 21H3v-2"/><line x1="7" y1="8" x2="7" y2="16" stroke-width="2"/><line x1="10" y1="8" x2="10" y2="16"/><line x1="13" y1="8" x2="13" y2="16" stroke-width="2.5"/><line x1="16" y1="8" x2="16" y2="16"/></svg>
-              </button>
+              <div class="flex gap-1">
+                <button type="button" class="scan-trigger-btn cam" onclick="document.getElementById('camera-scan-btn').click()" title="Escanear con Cámara">
+                  <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                </button>
+                <button type="button" class="scan-trigger-btn" onclick="window.openBarcodeScanner({ targetField: 'imei' })" title="Escanear código de barras">
+                  <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M3 5v-2h4"/><path d="M17 3h4v2"/><path d="M21 19v2h-4"/><path d="M7 21H3v-2"/><line x1="7" y1="8" x2="7" y2="16" stroke-width="2"/><line x1="10" y1="8" x2="10" y2="16"/><line x1="13" y1="8" x2="13" y2="16" stroke-width="2.5"/><line x1="16" y1="8" x2="16" y2="16"/></svg>
+                </button>
+              </div>
             </div>
-            <p class="text-xs text-[var(--color-text-muted)]" id="imei-counter">0/15 dígitos</p>
+            <div class="flex justify-between items-center">
+              <p class="text-xs text-[var(--color-text-muted)]">Número de 15 dígitos</p>
+              <span id="imei-counter" class="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wider">0/15 dígitos</span>
+            </div>
           </div>
 
           <div class="flex flex-col gap-1.5">
@@ -615,5 +633,118 @@ const marcasJson = JSON.stringify(marcasDB.map(m => ({
       submitBtn.disabled = false;
       submitBtn.innerHTML = `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Celular`;
     }
+  });
+
+  // Camera scanner: auto-fill marca y modelo
+  document.getElementById('camera-scan-btn')?.addEventListener('click', () => {
+    (window as any).openCameraScanner({
+      onResult: (data: any) => {
+        console.group('[Camera Scanner] Process Result');
+        console.log('Detected Data:', data);
+        
+        if (!data.marca) {
+          console.warn('No brand detected in the scan.');
+          console.groupEnd();
+          return;
+        }
+
+        const marcaEl = document.getElementById('marca') as HTMLSelectElement;
+        if (!marcaEl) {
+          console.error('Marca select element not found!');
+          console.groupEnd();
+          return;
+        }
+
+        let matchedMarcaValue = '';
+        const targetMarca = data.marca.toLowerCase().trim();
+        
+        // Find matching option (case-insensitive)
+        for (let i = 0; i < marcaEl.options.length; i++) {
+          const optValue = marcaEl.options[i].value;
+          if (optValue.toLowerCase().trim() === targetMarca) {
+            matchedMarcaValue = optValue;
+            break;
+          }
+        }
+
+        if (matchedMarcaValue) {
+          console.log('Matching Brand Found:', matchedMarcaValue);
+          marcaEl.value = matchedMarcaValue;
+          
+          // Trigger linked select logic
+          marcaEl.dispatchEvent(new Event('change', { bubbles: true }));
+          console.log('Triggered "change" event for marca select');
+
+          if (data.modelo) {
+            const targetModelo = data.modelo.toLowerCase().trim();
+            console.log('Target Modelo to match:', targetModelo);
+            
+            // Give time for the linked select logic to populate modelos
+            setTimeout(() => {
+              const modeloEl = document.getElementById('modelo') as HTMLSelectElement;
+              if (modeloEl) {
+                let matchedModeloValue = '';
+                const targetModelo = data.modelo.toLowerCase().trim();
+                
+                // 1. Try exact match
+                for (let i = 0; i < modeloEl.options.length; i++) {
+                  const optVal = modeloEl.options[i].value;
+                  if (optVal.toLowerCase().trim() === targetModelo) {
+                    matchedModeloValue = optVal;
+                    break;
+                  }
+                }
+
+                // 2. Try partial match if exact fails
+                if (!matchedModeloValue) {
+                  for (let i = 0; i < modeloEl.options.length; i++) {
+                    const optVal = modeloEl.options[i].value.toLowerCase();
+                    if (optVal.includes(targetModelo) || targetModelo.includes(optVal)) {
+                      matchedModeloValue = modeloEl.options[i].value;
+                      break;
+                    }
+                  }
+                }
+
+                if (matchedModeloValue) {
+                  modeloEl.value = matchedModeloValue;
+                  console.log('Matching Modelo Found and Set:', matchedModeloValue);
+                  (window as any).showToast(`✓ Detectado: ${matchedMarcaValue} ${matchedModeloValue}`, 'success');
+                } else {
+                  console.warn('Modelo not found in the populated list:', targetModelo);
+                  (window as any).showToast(`Marca "${matchedMarcaValue}" detectada. El modelo "${data.modelo}" no está en la lista.`, 'warning');
+                }
+              }
+            }, 600); // Increased timeout to 600ms for reliability
+          } else {
+            (window as any).showToast(`✓ Marca detectada: ${matchedMarcaValue}`, 'success');
+          }
+        } else {
+          console.warn('No matching brand in DB options for:', data.marca);
+          (window as any).showToast(`Marca "${data.marca}" no registrada. Por favor agrégala en Mantenedores.`, 'warning');
+        }
+
+        // Fill Serial (Serie)
+        if (data.serial) {
+          const serialEl = document.getElementById('serial') as HTMLInputElement;
+          if (serialEl) {
+            serialEl.value = data.serial;
+            console.log('Set Serial:', data.serial);
+          }
+        }
+
+        // Fill IMEI
+        if (data.imei) {
+          const imeiEl = document.getElementById('imei') as HTMLInputElement;
+          if (imeiEl) {
+            imeiEl.value = data.imei;
+            imeiEl.dispatchEvent(new Event('input', { bubbles: true })); // Trigger counter
+            console.log('Set IMEI:', data.imei);
+          }
+        }
+        
+        console.groupEnd();
+      },
+    });
   });
 </script>

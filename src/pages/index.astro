@@ -15,6 +15,7 @@ const [
   enBaja,
   totalSimcards,
   simDisponibles,
+  totalComputadores,
   ultimasAsignaciones,
 ] = await Promise.all([
   prisma.celular.count(),
@@ -24,6 +25,7 @@ const [
   prisma.celular.count({ where: { estado: 'BAJA' } }),
   prisma.simcard.count(),
   prisma.simcard.count({ where: { estado: 'DISPONIBLE' } }),
+  prisma.computador.count(),
   prisma.asignacion.findMany({
     where: { activa: true },
     take: 5,
@@ -109,6 +111,22 @@ const kpis = [
 
       <div class="card-surface p-5">
         <div class="flex items-center gap-3 mb-3">
+          <div class="flex items-center justify-center w-9 h-9 rounded-lg bg-[oklch(from_sky_500_l_c_h_/_10%)]">
+            <svg class="w-4.5 h-4.5 text-sky-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          </div>
+          <div>
+            <p class="text-sm font-medium text-[var(--color-text-primary)]">Computadores</p>
+            <p class="text-xs text-[var(--color-text-muted)]">All In One (AIO)</p>
+          </div>
+        </div>
+        <div class="flex items-end justify-between">
+          <p class="text-2xl font-display font-bold text-sky-500">{totalComputadores}</p>
+          <a href="/computadores" class="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)] hover:text-sky-500 transition-colors">Ver todos →</a>
+        </div>
+      </div>
+
+      <div class="card-surface p-5">
+        <div class="flex items-center gap-3 mb-3">
           <div class="flex items-center justify-center w-9 h-9 rounded-lg bg-[oklch(from_var(--color-danger)_l_c_h_/_10%)]">
             <svg class="w-4.5 h-4.5 text-[var(--color-danger)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
           </div>
@@ -123,13 +141,13 @@ const kpis = [
       <div class="card-surface p-5 flex flex-col justify-between">
         <p class="text-sm font-medium text-[var(--color-text-secondary)] mb-3">Acciones Rápidas</p>
         <div class="flex flex-col gap-2">
-          <Button href="/celulares/nuevo" variant="primary" size="sm">
+          <Button href="/computadores/nuevo" variant="primary" size="sm">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nuevo AIO
+          </Button>
+          <Button href="/celulares/nuevo" variant="secondary" size="sm">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Nuevo Celular
-          </Button>
-          <Button href="/simcards/nueva" variant="secondary" size="sm">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Nueva SIM Card
           </Button>
         </div>
       </div>
