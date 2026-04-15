@@ -16,6 +16,12 @@ const marcasJson = JSON.stringify(marcasDB.map(m => ({
   nombre: m.nombre,
   modelos: m.modelos.map(mod => ({ id: mod.id, nombre: mod.nombre })),
 })));
+const ultimosCelulares = await prisma.celular.findMany({
+  take: 5,
+  orderBy: { createdAt: 'desc' },
+});
+
+const totalCelulares = await prisma.celular.count();
 ---
 
 <BaseLayout title="Nuevo Celular — CelularES">
@@ -33,14 +39,17 @@ const marcasJson = JSON.stringify(marcasDB.map(m => ({
     </button>
   </Header>
 
-  <main class="p-6 lg:p-8 max-w-4xl animate-fade-in">
-    <form id="celular-form" class="space-y-8" novalidate>
-      <!-- Section 1: Equipment Data -->
-      <section class="card-surface p-6 lg:p-8">
-        <h2 class="text-lg font-display font-bold mb-6 flex items-center gap-2">
-          <svg class="w-5 h-5 text-[var(--color-accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-          Datos del Equipo
-        </h2>
+  <main class="p-6 lg:p-8 max-w-7xl mx-auto animate-fade-in">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      <!-- Form Column -->
+      <div class="lg:col-span-8 flex flex-col gap-8">
+        <form id="celular-form" class="space-y-8" novalidate>
+          <!-- Section 1: Equipment Data -->
+          <section class="card-surface p-6 lg:p-8">
+            <h2 class="text-lg font-display font-bold mb-6 flex items-center gap-2">
+              <svg class="w-5 h-5 text-[var(--color-accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+              Datos del Equipo
+            </h2>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div class="flex flex-col gap-1.5">
@@ -72,7 +81,7 @@ const marcasJson = JSON.stringify(marcasDB.map(m => ({
 
           <div class="flex flex-col gap-1.5">
             <label for="serial" class="text-sm font-medium text-[var(--color-text-secondary)]">
-              Serial <span class="text-[var(--color-danger)] ml-0.5">*</span>
+              Serial <span id="serial-asterisk" class="text-[var(--color-danger)] ml-0.5">*</span>
             </label>
             <div class="flex gap-2">
               <input id="serial" name="serial" type="text" placeholder="Mínimo 5 caracteres" required class="input-base flex-1" />
@@ -254,7 +263,70 @@ const marcasJson = JSON.stringify(marcasDB.map(m => ({
           Guardar Celular
         </Button>
       </div>
-    </form>
+      </form>
+    </div>
+
+      <!-- Sidebar Column (Recent Entries) -->
+      <aside class="lg:col-span-4 space-y-6">
+        <!-- Total Counter Card -->
+        <div class="card-surface p-5 border-l-4 border-[var(--color-accent)]">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">Inventario Global</p>
+              <h3 id="total-celulares-counter" class="text-2xl font-display font-black text-[var(--color-text-primary)] mt-1">{totalCelulares}</h3>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-[oklch(from_var(--color-accent)_l_c_h_/_10%)] flex items-center justify-center text-[var(--color-accent)]">
+              <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+            </div>
+          </div>
+          <p class="text-[10px] text-[var(--color-text-muted)] mt-3">Equipos registrados en total</p>
+        </div>
+
+        <div class="card-surface p-6">
+          <div class="flex items-center justify-between mb-6">
+            <h3 class="text-xs font-bold uppercase tracking-widest text-[var(--color-text-muted)]">Últimos 5 Ingresados</h3>
+            <a href="/celulares" class="text-[10px] font-bold text-[var(--color-accent)] uppercase hover:underline">Ver todos</a>
+          </div>
+
+          <div class="space-y-4" id="recent-celulares-list">
+            {ultimosCelulares.length > 0 ? (
+              ultimosCelulares.map((c) => (
+                <div class="recent-item group flex items-center justify-between p-3 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] hover:border-[var(--color-accent)] transition-all duration-200">
+                  <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-[oklch(from_var(--color-accent)_l_c_h_/_8%)] flex items-center justify-center text-[var(--color-accent)] group-hover:bg-[var(--color-accent)] group-hover:text-white transition-colors">
+                      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+                    </div>
+                    <div>
+                      <p class="text-[10px] font-mono font-bold text-[var(--color-accent)]">{c.serial}</p>
+                      <p class="text-[10px] font-medium text-[var(--color-text-secondary)] mt-0.5">{c.marca} {c.modelo}</p>
+                    </div>
+                  </div>
+                  <div class={`px-2 py-0.5 rounded text-[9px] font-bold ${
+                    c.estado === 'DISPONIBLE' ? 'bg-[var(--color-status-disponible-bg)] text-[var(--color-status-disponible)]' :
+                    c.estado === 'ASIGNADO' ? 'bg-blue-500/10 text-blue-500' : 'bg-gray-500/10 text-gray-500'
+                  }`}>
+                    {c.estado}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div id="no-recent-msg" class="py-8 text-center text-xs text-[var(--color-text-muted)] italic">
+                No hay equipos registrados recientemente
+              </div>
+            )}
+          </div>
+        </div>
+
+        <!-- Quick Help Card -->
+        <div class="card-surface p-5 bg-[oklch(from_var(--color-accent)_l_c_h_/_5%)] border-[var(--color-accent)] border-opacity-10">
+          <h4 class="text-xs font-bold text-[var(--color-accent)] uppercase tracking-wider mb-2">Modo Alta Velocidad</h4>
+          <p class="text-xs text-[var(--color-text-secondary)] leading-relaxed">
+            Al escanear el <b>Serial</b>, el foco saltará automáticamente al <b>IMEI</b>. 
+            Al escanear el IMEI, el equipo se guardará y los campos se limpiarán para el siguiente ingreso.
+          </p>
+        </div>
+      </aside>
+    </div>
   </main>
 </BaseLayout>
 
@@ -365,9 +437,26 @@ const marcasJson = JSON.stringify(marcasDB.map(m => ({
 </script>
 
 <script>
-  // IMEI - only digits, counter
+  // Common elements
+  const serialInput = document.getElementById('serial') as HTMLInputElement;
   const imeiInput = document.getElementById('imei') as HTMLInputElement;
   const imeiCounter = document.getElementById('imei-counter')!;
+  const obsTextarea = document.getElementById('observaciones') as HTMLTextAreaElement;
+  const obsCounter = document.getElementById('obs-counter')!;
+  const marcaSelectMain = document.getElementById('marca') as HTMLSelectElement;
+  const serialAsterisk = document.getElementById('serial-asterisk')!;
+
+  marcaSelectMain?.addEventListener('change', () => {
+    const isNokia = marcaSelectMain.value.toLowerCase() === 'nokia';
+    if (isNokia) {
+      serialInput.required = false;
+      serialAsterisk?.classList.add('hidden');
+      imeiInput.focus(); // Jump to IMEI for Nokia
+    } else {
+      serialInput.required = true;
+      serialAsterisk?.classList.remove('hidden');
+    }
+  });
 
   imeiInput?.addEventListener('input', () => {
     imeiInput.value = imeiInput.value.replace(/\D/g, '').slice(0, 15);
@@ -380,9 +469,6 @@ const marcasJson = JSON.stringify(marcasDB.map(m => ({
   });
 
   // Observaciones counter
-  const obsTextarea = document.getElementById('observaciones') as HTMLTextAreaElement;
-  const obsCounter = document.getElementById('obs-counter')!;
-
   obsTextarea?.addEventListener('input', () => {
     obsCounter.textContent = `${obsTextarea.value.length}/500`;
   });
@@ -545,8 +631,64 @@ const marcasJson = JSON.stringify(marcasDB.map(m => ({
   const form = document.getElementById('celular-form') as HTMLFormElement;
   const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
 
+  const playSound = (type: 'success' | 'error') => {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    
+    if (type === 'success') {
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.2);
+    } else {
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(150, ctx.currentTime);
+      osc.frequency.linearRampToValueAtTime(100, ctx.currentTime + 0.3);
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.4);
+    }
+  };
+
+  async function checkIfExists(field: 'serial' | 'imei', value: string) {
+    if (!value || value.length < 4) return false; // Don't check tiny strings
+    try {
+      const res = await fetch(`/api/celulares/check?${field}=${value}`);
+      const json = await res.json();
+      if (json.exists) {
+        playSound('error');
+        (window as any).showToast(`El ${field.toUpperCase()} "${value}" ya existe: ${json.details.marca} ${json.details.modelo}`, 'error');
+        
+        const input = document.getElementById(field) as HTMLInputElement;
+        input.value = '';
+        input.focus();
+        
+        if (field === 'imei') {
+          const counter = document.getElementById('imei-counter');
+          if (counter) counter.textContent = '0/15 dígitos';
+        }
+        return true;
+      }
+    } catch (e) {
+      console.error('Error in checkIfExists:', e);
+    }
+    return false;
+  }
+
+  // ── Form Submit ──
+  serialInput?.addEventListener('change', () => checkIfExists('serial', serialInput.value));
+  imeiInput?.addEventListener('change', () => checkIfExists('imei', imeiInput.value));
+
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (submitBtn.disabled) return;
     submitBtn.disabled = true;
     submitBtn.innerHTML = `<svg class="w-4 h-4 animate-spin" style="animation: spin 1s linear infinite" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Guardando...`;
 
@@ -572,8 +714,11 @@ const marcasJson = JSON.stringify(marcasDB.map(m => ({
       const celJson = await celRes.json();
 
       if (!celJson.success) {
+        playSound('error');
         throw new Error(celJson.error?.message || 'Error al crear celular');
       }
+      
+      playSound('success');
 
       const celularId = celJson.data.id;
       let simcardId: string | null = null;
@@ -625,13 +770,106 @@ const marcasJson = JSON.stringify(marcasDB.map(m => ({
       }
 
       (window as any).showToast('Celular creado exitosamente', 'success');
-      setTimeout(() => {
-        window.location.href = '/celulares';
-      }, 1000);
-    } catch (err: any) {
-      (window as any).showToast(err.message || 'Error al guardar', 'error');
+      
+      // Update Real-Time Counter
+      const counterEl = document.getElementById('total-celulares-counter');
+      if (counterEl) {
+        const currentCount = parseInt(counterEl.textContent || '0');
+        counterEl.textContent = (currentCount + 1).toString();
+      }
+
+      // Update Real-Time Recent List
+      const recentList = document.getElementById('recent-celulares-list');
+      const noRecentMsg = document.getElementById('no-recent-msg');
+      if (recentList) {
+        if (noRecentMsg) noRecentMsg.remove();
+
+        const newItem = document.createElement('div');
+        newItem.className = 'recent-item group flex items-center justify-between p-3 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] hover:border-[var(--color-accent)] transition-all duration-500 animate-in fade-in slide-in-from-right-4';
+        
+        const state = celularData.estado;
+        const stateClasses = state === 'DISPONIBLE' ? 'bg-[var(--color-status-disponible-bg)] text-[var(--color-status-disponible)]' :
+                           state === 'ASIGNADO' ? 'bg-blue-500/10 text-blue-500' : 'bg-gray-500/10 text-gray-500';
+
+        newItem.innerHTML = `
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-[oklch(from_var(--color-accent)_l_c_h_/_8%)] flex items-center justify-center text-[var(--color-accent)] group-hover:bg-[var(--color-accent)] group-hover:text-white transition-colors">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+            </div>
+            <div>
+              <p class="text-[10px] font-mono font-bold text-[var(--color-accent)]">${celularData.serial}</p>
+              <p class="text-[10px] font-medium text-[var(--color-text-secondary)] mt-0.5">${celularData.marca} ${celularData.modelo}</p>
+            </div>
+          </div>
+          <div class="px-2 py-0.5 rounded text-[9px] font-bold ${stateClasses}">
+            ${state}
+          </div>
+        `;
+
+        recentList.prepend(newItem);
+
+        // Keep only 5
+        const items = recentList.querySelectorAll('.recent-item');
+        if (items.length > 5) {
+          items[items.length - 1].remove();
+        }
+      }
+
+      // Reset only serial and imei for high-speed entry
+      (document.getElementById('serial') as HTMLInputElement).value = '';
+      (document.getElementById('imei') as HTMLInputElement).value = '';
+      (document.getElementById('imei-counter') as HTMLElement).textContent = '0/15 dígitos';
+      (document.getElementById('observaciones') as HTMLTextAreaElement).value = '';
+      
       submitBtn.disabled = false;
       submitBtn.innerHTML = `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Celular`;
+      
+      // Re-focus correctly for high-speed
+      if (marcaSelectMain.value.toLowerCase() === 'nokia') {
+        imeiInput?.focus();
+      } else {
+        serialInput?.focus();
+      }
+    } catch (err: any) {
+      (window as any).showToast(err.message || 'Error al guardar', 'error');
+      
+      // Also reset on error (e.g. duplicate) to allow scanning next equipo
+      (document.getElementById('serial') as HTMLInputElement).value = '';
+      (document.getElementById('imei') as HTMLInputElement).value = '';
+      (document.getElementById('imei-counter') as HTMLElement).textContent = '0/15 dígitos';
+      (document.getElementById('observaciones') as HTMLTextAreaElement).value = '';
+      
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Celular`;
+      
+      // Re-focus correctly for high-speed
+      if (marcaSelectMain.value.toLowerCase() === 'nokia') {
+        imeiInput?.focus();
+      } else {
+        serialInput?.focus();
+      }
+    }
+  });
+
+  // Focus jump logic for high-speed entry
+  serialInput?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      imeiInput?.focus();
+    }
+  });
+  
+  // Custom event from BarcodeScanner component
+  serialInput?.addEventListener('change', () => {
+    if (serialInput.value) {
+      imeiInput?.focus();
+    }
+  });
+
+  imeiInput?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      // Allow natural form submission or trigger it
+      console.log('IMEI Enter detected, submitting form...');
     }
   });
 

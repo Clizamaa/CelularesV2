@@ -1,5 +1,5 @@
-import { prisma } from '@/lib/prisma';
-import type { Prisma } from '@prisma/client';
+import { prisma as globalPrisma } from '@/lib/prisma';
+import { PrismaClient, type Prisma } from '@prisma/client';
 
 export async function getCelulares(params: {
   q?: string;
@@ -28,7 +28,7 @@ export async function getCelulares(params: {
   };
 
   const [data, total] = await Promise.all([
-    prisma.celular.findMany({
+    globalPrisma.celular.findMany({
       where,
       skip: (page - 1) * limit,
       take: limit,
@@ -39,14 +39,14 @@ export async function getCelulares(params: {
       },
       orderBy,
     }),
-    prisma.celular.count({ where }),
+    globalPrisma.celular.count({ where }),
   ]);
 
   return { data, total, page, pageSize: limit };
 }
 
 export async function getCelularById(id: string) {
-  return prisma.celular.findUnique({
+  return globalPrisma.celular.findUnique({
     where: { id },
     include: {
       asignacion: {
@@ -56,20 +56,54 @@ export async function getCelularById(id: string) {
   });
 }
 
-export async function createCelular(data: {
+export async function createCelular(input: {
   marca: string;
   modelo: string;
-  serial: string;
+  serial?: string | null;
   imei: string;
   observaciones?: string;
   estado?: any;
 }) {
-  return prisma.celular.create({
-    data: {
-      ...data,
-      id: crypto.randomUUID(),
-    },
-  });
+  const tempPrisma = new PrismaClient();
+  
+  try {
+    let finalSerial = input.serial?.trim();
+
+    if (!finalSerial) {
+      // Generate correlative 00001, 00002...
+      // We look for serials that are purely numeric and 5 digits
+      const lastCelulares = await tempPrisma.celular.findMany({
+        where: {
+          serial: {
+            not: null,
+            // Simple check for numeric serials of length 5
+            // MySQL regex: ^[0-9]{5}$
+          }
+        },
+        select: { serial: true }
+      });
+
+      const numericSerials = lastCelulares
+        .map(c => parseInt(c.serial!))
+        .filter(n => !isNaN(n) && n < 100000);
+
+      const nextNumber = numericSerials.length > 0 ? Math.max(...numericSerials) + 1 : 1;
+      finalSerial = nextNumber.toString().padStart(5, '0');
+    }
+
+    return await tempPrisma.celular.create({
+      data: {
+        marca: input.marca,
+        modelo: input.modelo,
+        serial: finalSerial,
+        imei: input.imei,
+        observaciones: input.observaciones || '',
+        estado: input.estado || 'DISPONIBLE',
+      },
+    });
+  } finally {
+    await tempPrisma.$disconnect();
+  }
 }
 
 export async function updateCelular(id: string, data: Prisma.CelularUpdateInput) {

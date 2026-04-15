@@ -11,7 +11,7 @@ model Celular {
   id            String        @id @default(uuid())
   marca         String        @db.VarChar(50)
   modelo        String        @db.VarChar(100)
-  serial        String        @unique @db.VarChar(50)
+  serial        String?       @unique @db.VarChar(50)
   imei          String        @unique @db.Char(15)
   observaciones String?       @db.Text
   estado        EstadoCelular @default(DISPONIBLE)

@@ -9,11 +9,15 @@ import { formatDate } from '@/lib/utils/format';
 const url = Astro.url;
 const q = url.searchParams.get('q') ?? '';
 const estado = url.searchParams.get('estado') ?? '';
+const marca = url.searchParams.get('marca') ?? '';
+const modelo = url.searchParams.get('modelo') ?? '';
 const page = Number(url.searchParams.get('page') ?? 1);
 const limit = 10;
 
 const where: any = {
   ...(estado && { estado }),
+  ...(marca && { marca }),
+  ...(modelo && { modelo }),
   ...(q && {
     OR: [
       { marca: { contains: q } },
@@ -24,7 +28,7 @@ const where: any = {
   }),
 };
 
-const [celulares, total] = await Promise.all([
+const [celulares, total, marcasDisponibles, modelosDisponibles] = await Promise.all([
   prisma.celular.findMany({
     where,
     skip: (page - 1) * limit,
@@ -33,6 +37,8 @@ const [celulares, total] = await Promise.all([
     orderBy: { createdAt: 'desc' },
   }),
   prisma.celular.count({ where }),
+  prisma.celular.groupBy({ by: ['marca'], orderBy: { marca: 'asc' } }),
+  prisma.celular.groupBy({ by: ['marca', 'modelo'], orderBy: { modelo: 'asc' } }),
 ]);
 
 const totalPages = Math.ceil(total / limit);
@@ -62,32 +68,65 @@ const estadoLabels: Record<string, string> = {
 
   <main class="p-6 lg:p-8 space-y-6 animate-fade-in">
     <!-- Filters -->
-    <div class="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-      <div class="flex flex-wrap gap-2" id="filter-pills">
-        {estados.map((e) => (
-          <button
-            class={`filter-pill ${estado === e ? 'active' : ''}`}
-            data-estado={e}
-          >
-            {estadoLabels[e]}
+    <div class="flex flex-col gap-5 bg-[var(--color-bg-elevated)] p-5 rounded-2xl border border-[var(--color-border-subtle)]">
+      <div class="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+        <div class="flex flex-wrap gap-2" id="filter-pills">
+          {estados.map((e) => (
+            <button
+              class={`filter-pill ${estado === e ? 'active' : ''}`}
+              data-estado={e}
+            >
+              {estadoLabels[e]}
+            </button>
+          ))}
+        </div>
+
+        <div class="flex gap-2 w-full lg:w-auto">
+          <div class="relative flex-1 lg:w-72">
+            <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input
+              type="text"
+              id="search-input"
+              placeholder="Escribe para buscar..."
+              value={q}
+              class="input-base pl-10 text-sm"
+            />
+          </div>
+          <button type="button" class="scan-trigger-btn" id="search-scan-btn" title="Buscar escaneando">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M3 5v-2h4"/><path d="M17 3h4v2"/><path d="M21 19v2h-4"/><path d="M7 21H3v-2"/><line x1="7" y1="8" x2="7" y2="16" stroke-width="2"/><line x1="10" y1="8" x2="10" y2="16"/><line x1="13" y1="8" x2="13" y2="16" stroke-width="2.5"/><line x1="16" y1="8" x2="16" y2="16"/></svg>
           </button>
-        ))}
+        </div>
       </div>
 
-      <div class="flex gap-2 w-full sm:w-auto">
-        <div class="relative flex-1 sm:w-72">
-          <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input
-            type="text"
-            id="search-input"
-            placeholder="Buscar por marca, modelo, serial..."
-            value={q}
-            class="input-base pl-10 text-sm"
-          />
+      <div class="flex flex-wrap gap-4 items-center border-t border-[var(--color-border-subtle)] pt-4">
+        <div class="flex items-center gap-2">
+          <label class="text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">Marca</label>
+          <select id="marca-filter" class="input-base py-1 px-3 text-xs w-40">
+            <option value="">Todas las marcas</option>
+            {marcasDisponibles.map(m => (
+              <option value={m.marca} selected={marca === m.marca}>{m.marca}</option>
+            ))}
+          </select>
         </div>
-        <button type="button" class="scan-trigger-btn" id="search-scan-btn" title="Buscar escaneando código">
-          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M3 5v-2h4"/><path d="M17 3h4v2"/><path d="M21 19v2h-4"/><path d="M7 21H3v-2"/><line x1="7" y1="8" x2="7" y2="16" stroke-width="2"/><line x1="10" y1="8" x2="10" y2="16"/><line x1="13" y1="8" x2="13" y2="16" stroke-width="2.5"/><line x1="16" y1="8" x2="16" y2="16"/></svg>
-        </button>
+
+        <div class="flex items-center gap-2">
+          <label class="text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">Modelo</label>
+          <select id="modelo-filter" class="input-base py-1 px-3 text-xs w-48">
+            <option value="">Todos los modelos</option>
+            {modelosDisponibles.filter(mod => !marca || mod.marca === marca).map(m => (
+              <option value={m.modelo} selected={modelo === m.modelo}>{m.modelo}</option>
+            ))}
+          </select>
+        </div>
+
+        { (q || estado || marca || modelo) && (
+          <button 
+            id="clear-filters-btn"
+            class="text-[10px] font-bold uppercase tracking-widest text-[var(--color-danger)] hover:underline ml-auto"
+          >
+            Limpiar filtros
+          </button>
+        )}
       </div>
     </div>
 
@@ -276,6 +315,38 @@ const estadoLabels: Record<string, string> = {
       url.searchParams.set('page', '1');
       window.location.href = url.toString();
     });
+  });
+
+  // Marca & Modelo filters
+  const marcaFilter = document.getElementById('marca-filter') as HTMLSelectElement;
+  const modeloFilter = document.getElementById('modelo-filter') as HTMLSelectElement;
+  const clearFiltersBtn = document.getElementById('clear-filters-btn');
+
+  marcaFilter?.addEventListener('change', () => {
+    const url = new URL(window.location.href);
+    if (marcaFilter.value) {
+      url.searchParams.set('marca', marcaFilter.value);
+    } else {
+      url.searchParams.delete('marca');
+    }
+    url.searchParams.delete('modelo'); // Reset modelo when marca changes
+    url.searchParams.set('page', '1');
+    window.location.href = url.toString();
+  });
+
+  modeloFilter?.addEventListener('change', () => {
+    const url = new URL(window.location.href);
+    if (modeloFilter.value) {
+      url.searchParams.set('modelo', modeloFilter.value);
+    } else {
+      url.searchParams.delete('modelo');
+    }
+    url.searchParams.set('page', '1');
+    window.location.href = url.toString();
+  });
+
+  clearFiltersBtn?.addEventListener('click', () => {
+    window.location.href = window.location.pathname;
   });
 
   // Pagination

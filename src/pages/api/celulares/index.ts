@@ -37,11 +37,11 @@ export const POST: APIRoute = async ({ request }) => {
     const celular = await createCelular(parsed.data);
     return successResponse(celular, undefined, 201);
   } catch (err: any) {
-    console.error('[API] POST /api/celulares error:', err);
+    console.error('[API] POST /api/celulares error detail:', err);
     if (err?.code === 'P2002') {
       const field = err.meta?.target?.[0] ?? 'campo';
       return errorResponse(409, `El ${field} ya existe en el sistema`);
     }
-    return errorResponse(500, 'Error al crear celular');
+    return errorResponse(500, `Error al crear celular: ${err.message || 'Error desconocido'}`);
   }
 };
