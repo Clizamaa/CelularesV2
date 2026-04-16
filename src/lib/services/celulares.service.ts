@@ -4,15 +4,19 @@ import { PrismaClient, type Prisma } from '@prisma/client';
 export async function getCelulares(params: {
   q?: string;
   estado?: string;
+  marca?: string;
+  modelo?: string;
   page?: number;
   limit?: number;
   sort?: string;
   order?: string;
 }) {
-  const { q = '', estado, page = 1, limit = 10, sort = 'createdAt', order = 'desc' } = params;
+  const { q = '', estado, marca, modelo, page = 1, limit = 10, sort = 'createdAt', order = 'desc' } = params;
 
   const where: Prisma.CelularWhereInput = {
     ...(estado && { estado: estado as any }),
+    ...(marca && { marca }),
+    ...(modelo && { modelo }),
     ...(q && {
       OR: [
         { marca: { contains: q } },

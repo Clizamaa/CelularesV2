@@ -21,7 +21,7 @@ const ultimosCelulares = await prisma.celular.findMany({
   orderBy: { createdAt: 'desc' },
 });
 
-const totalCelulares = await prisma.celular.count();
+const totalCelulares = await prisma.celular.count({ where: { NOT: { estado: 'BAJA' } } });
 ---
 
 <BaseLayout title="Nuevo Celular — CelularES">

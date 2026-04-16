@@ -1,0 +1,281 @@
+---
+import BaseLayout from '@/components/layout/BaseLayout.astro';
+import Header from '@/components/layout/Header.astro';
+import Badge from '@/components/ui/Badge.astro';
+import Button from '@/components/ui/Button.astro';
+import { prisma } from '@/lib/prisma';
+import { formatDate } from '@/lib/utils/format';
+
+const { id } = Astro.params;
+const editMode = Astro.url.searchParams.get('edit') === 'true';
+
+if (!id) return Astro.redirect('/bam');
+
+const bam = await prisma.bAM.findUnique({
+  where: { id },
+  include: {
+    asignacion: {
+      include: { simcard: true }
+    },
+  },
+});
+
+if (!bam) return Astro.redirect('/bam');
+
+const asignacionActiva = bam.asignacion?.activa ? bam.asignacion : null;
+
+// Dynamic marcas/modelos from DB for edit mode
+const marcasDB = await prisma.marca.findMany({
+  include: { modelos: { orderBy: { nombre: 'asc' } } },
+  orderBy: { nombre: 'asc' },
+});
+
+const marcasJson = JSON.stringify(marcasDB.map(m => ({
+  id: m.id,
+  nombre: m.nombre,
+  modelos: m.modelos.map(mod => ({ id: mod.id, nombre: mod.nombre })),
+})));
+---
+
+<BaseLayout title={`${bam.marca} ${bam.modelo} — CelularES`}>
+  <Header
+    title={editMode ? 'Editar BAM' : `${bam.marca} ${bam.modelo}`}
+    breadcrumbs={[
+      { label: 'Dashboard', href: '/' },
+      { label: 'BAM', href: '/bam' },
+      { label: editMode ? 'Editar' : bam.modelo },
+    ]}
+  >
+    {!editMode && (
+      <Button href={`/bam/${id}?edit=true`} variant="secondary" size="sm">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Editar
+      </Button>
+    )}
+  </Header>
+
+  <main class="p-6 lg:p-8 animate-fade-in">
+    {editMode ? (
+      <!-- EDIT MODE -->
+      <form id="edit-form" class="max-w-4xl space-y-6">
+        <section class="card-surface p-6 lg:p-8">
+          <h2 class="text-lg font-display font-bold mb-6 flex items-center gap-2">
+            <svg class="w-5 h-5 text-[var(--color-accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            Información del Equipo
+          </h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div class="flex flex-col gap-1.5">
+              <label for="marca" class="text-sm font-medium text-[var(--color-text-secondary)]">Marca *</label>
+              <select id="marca" name="marca" required class="input-base">
+                <option value="">— Seleccionar marca —</option>
+                {marcasDB.map((m) => (
+                  <option value={m.nombre} data-marca-id={m.id} selected={bam.marca === m.nombre}>{m.nombre}</option>
+                ))}
+              </select>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label for="modelo" class="text-sm font-medium text-[var(--color-text-secondary)]">Modelo *</label>
+              <select id="modelo" name="modelo" required class="input-base">
+                <option value="">— Seleccionar modelo —</option>
+                {marcasDB.find(m => m.nombre === bam.marca)?.modelos.map((mod) => (
+                  <option value={mod.nombre} selected={bam.modelo === mod.nombre}>{mod.nombre}</option>
+                ))}
+              </select>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label for="imei" class="text-sm font-medium text-[var(--color-text-secondary)]">IMEI *</label>
+              <input id="imei" name="imei" value={bam.imei} maxlength="15" required class="input-base" inputmode="numeric" />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label for="estado" class="text-sm font-medium text-[var(--color-text-secondary)]">Estado</label>
+              <select id="estado" name="estado" class="input-base">
+                <option value="DISPONIBLE" selected={bam.estado === 'DISPONIBLE'}>Disponible</option>
+                <option value="ASIGNADO" selected={bam.estado === 'ASIGNADO'}>Asignado</option>
+                <option value="MANTENIMIENTO" selected={bam.estado === 'MANTENIMIENTO'}>Mantenimiento</option>
+                <option value="BAJA" selected={bam.estado === 'BAJA'}>Baja</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="mt-5">
+            <label for="observaciones" class="text-sm font-medium text-[var(--color-text-secondary)]">Observaciones</label>
+            <textarea id="observaciones" name="observaciones" class="input-base resize-none min-h-[6rem] mt-1.5">{bam.observaciones}</textarea>
+          </div>
+        </section>
+
+        <div class="flex justify-between items-center bg-[var(--color-bg-surface)] p-4 rounded-2xl border border-[var(--color-border-subtle)] shadow-lg">
+          <Button href={`/bam/${id}`} variant="outline" size="md">Cancelar</Button>
+          <Button type="submit" variant="primary" id="save-btn" size="md">Guardar Cambios</Button>
+        </div>
+      </form>
+    ) : (
+      <!-- VIEW MODE -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div class="lg:col-span-2 space-y-6">
+          <section class="card-surface p-6 lg:p-8">
+            <div class="flex justify-between items-start mb-8">
+              <div>
+                <h2 class="text-2xl font-display font-bold text-[var(--color-text-primary)]">{bam.marca}</h2>
+                <p class="text-[var(--color-text-secondary)]">{bam.modelo}</p>
+              </div>
+              <Badge status={bam.estado} size="md" />
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div>
+                <p class="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-widest mb-2">IMEI</p>
+                <p class="font-mono text-lg">{bam.imei}</p>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-widest mb-2">Fecha de Ingreso</p>
+                <p>{formatDate(bam.createdAt)}</p>
+              </div>
+            </div>
+
+            <div class="mt-8 pt-8 border-t border-[var(--color-border-subtle)]">
+              <p class="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-widest mb-2">Observaciones</p>
+              <p class="text-[var(--color-text-secondary)] whitespace-pre-wrap">{bam.observaciones || 'Sin observaciones registradas.'}</p>
+            </div>
+          </section>
+
+          {asignacionActiva && (
+            <section class="card-surface p-6 lg:p-8 border-l-4 border-[var(--color-status-asignado)]">
+              <div class="flex justify-between items-center mb-6">
+                <h3 class="text-lg font-bold flex items-center gap-2 text-[var(--color-status-asignado)]">
+                  <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11b-2 2-5-5 2-2"/></svg>
+                  Asignación Activa
+                </h3>
+                <Button variant="outline" size="xs" id="release-btn" data-asig-id={asignacionActiva.id} class="text-danger border-danger hover:bg-danger/10">
+                   Liberar Equipo
+                </Button>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <p class="text-[10px] font-bold uppercase text-[var(--color-text-muted)] mb-1">Funcionario</p>
+                  <p class="font-medium text-[var(--color-text-primary)]">{asignacionActiva.funcionarioNombre}</p>
+                  <p class="text-xs text-[var(--color-text-secondary)]">ID: {asignacionActiva.funcionarioId}</p>
+                </div>
+                {asignacionActiva.simcard && (
+                  <div>
+                    <p class="text-[10px] font-bold uppercase text-[var(--color-text-muted)] mb-1">SIM Card Asociada</p>
+                    <p class="font-medium text-[var(--color-text-primary)]">{asignacionActiva.simcard.numeroSimcard}</p>
+                    <p class="text-xs text-[var(--color-text-secondary)]">{asignacionActiva.simcard.numeroTelefono} ({asignacionActiva.simcard.operador})</p>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
+          {!asignacionActiva && bam.estado === 'DISPONIBLE' && (
+            <div class="flex justify-center p-8 border-2 border-dashed border-[var(--color-border-subtle)] rounded-3xl">
+               <div class="text-center">
+                  <p class="text-sm text-[var(--color-text-muted)] mb-4">Este equipo no tiene una asignación activa.</p>
+                  <Button href={`/bam/${id}?edit=true`} variant="outline" size="sm">Asignar ahora</Button>
+               </div>
+            </div>
+          )}
+        </div>
+
+        <div class="space-y-6">
+          <section class="card-surface p-6">
+             <h3 class="font-bold mb-4 flex items-center gap-2 text-xs uppercase tracking-widest text-[var(--color-text-muted)]">
+               Audit Log
+             </h3>
+             <div class="space-y-4">
+                <div class="flex gap-3">
+                   <div class="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)] mt-1.5"></div>
+                   <div>
+                      <p class="text-xs font-bold">Ingreso al sistema</p>
+                      <p class="text-[10px] text-[var(--color-text-muted)]">{formatDate(bam.createdAt)}</p>
+                   </div>
+                </div>
+             </div>
+          </section>
+        </div>
+      </div>
+    )}
+  </main>
+</BaseLayout>
+
+<script define:vars={{ marcasJson, id }}>
+  // Edit Form Logic
+  if (document.getElementById('edit-form')) {
+    const marcasData = JSON.parse(marcasJson);
+    const marcaSelect = document.getElementById('marca');
+    const modeloSelect = document.getElementById('modelo');
+    const editForm = document.getElementById('edit-form');
+    const saveBtn = document.getElementById('save-btn');
+
+    marcaSelect?.addEventListener('change', () => {
+      const selectedOption = marcaSelect.selectedOptions[0];
+      const marcaId = selectedOption?.dataset?.marcaId;
+      const marca = marcasData.find((m) => m.id === marcaId);
+      modeloSelect.innerHTML = '';
+      if (marca && marca.modelos.length > 0) {
+        modeloSelect.disabled = false;
+        modeloSelect.innerHTML = '<option value="">— Seleccionar modelo —</option>';
+        marca.modelos.forEach((mod) => {
+          const opt = document.createElement('option');
+          opt.value = mod.nombre;
+          opt.textContent = mod.nombre;
+          modeloSelect.appendChild(opt);
+        });
+      } else {
+        modeloSelect.disabled = true;
+      }
+    });
+
+    editForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(editForm);
+      const data = Object.fromEntries(formData.entries());
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Guardando...';
+      try {
+        const res = await fetch(`/api/bam/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        if ((await res.json()).success) {
+          (window as any).showToast('Actualizado', 'success');
+          setTimeout(() => window.location.href = `/bam/${id}`, 800);
+        }
+      } catch {
+        (window as any).showToast('Error', 'error');
+        saveBtn.disabled = false;
+      }
+    });
+
+    const imeiInput = document.getElementById('imei');
+    imeiInput?.addEventListener('input', () => {
+      imeiInput.value = imeiInput.value.replace(/\D/g, '').slice(0, 15);
+    });
+  }
+
+  // Release Logic
+  const releaseBtn = document.getElementById('release-btn');
+  releaseBtn?.addEventListener('click', async () => {
+    const asigId = releaseBtn.dataset.asigId;
+    const confirmed = await (window as any).confirmAction({
+      title: '¿Liberar equipo?',
+      message: 'El equipo y la SIM volverán a estar disponibles.',
+      confirmText: 'Liberar',
+      variant: 'danger'
+    });
+
+    if (confirmed) {
+      try {
+        const res = await fetch(`/api/asignaciones/bam/${asigId}`, { method: 'DELETE' });
+        if ((await res.json()).success) {
+           (window as any).showToast('Equipo liberado', 'success');
+           setTimeout(() => window.location.reload(), 1000);
+        }
+      } catch {
+         (window as any).showToast('Error al liberar', 'error');
+      }
+    }
+  });
+</script>

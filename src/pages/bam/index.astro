@@ -1,0 +1,235 @@
+---
+import BaseLayout from '@/components/layout/BaseLayout.astro';
+import Header from '@/components/layout/Header.astro';
+import Button from '@/components/ui/Button.astro';
+import Badge from '@/components/ui/Badge.astro';
+import { prisma } from '@/lib/prisma';
+import { formatDate } from '@/lib/utils/format';
+
+const q = Astro.url.searchParams.get('q') || '';
+const estado = Astro.url.searchParams.get('estado') || '';
+
+const bams = await prisma.bAM.findMany({
+  where: {
+    ...(estado && { estado: estado as any }),
+    ...(q && {
+      OR: [
+        { marca: { contains: q, lte: undefined } }, // Simple contains for MySQL
+        { modelo: { contains: q } },
+        { imei: { contains: q } },
+      ],
+    }),
+  },
+  orderBy: { createdAt: 'desc' },
+  include: { asignacion: true }
+});
+
+const total = bams.length;
+
+const filters = [
+  { label: 'Todos', value: '' },
+  { label: 'Disponibles', value: 'DISPONIBLE' },
+  { label: 'Asignados', value: 'ASIGNADO' },
+  { label: 'Baja', value: 'BAJA' },
+];
+---
+
+<BaseLayout title="Banda Ancha Movil (BAM) — CelularES">
+  <Header
+    title="Banda Ancha Movil (BAM)"
+    breadcrumbs={[{ label: 'Dashboard', href: '/' }, { label: 'BAM' }]}
+  >
+    <Button href="/bam/nuevo" variant="primary" size="sm">
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Nueva BAM
+    </Button>
+  </Header>
+
+  <main class="p-6 lg:p-8 space-y-6 animate-fade-in">
+    <!-- Barra de Búsqueda y Filtros -->
+    <div class="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
+      <div class="flex flex-wrap gap-2" id="filter-pills">
+        {filters.map((f) => (
+          <button
+            class={`filter-pill ${estado === f.value ? 'active' : ''}`}
+            data-estado={f.value}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      <div class="relative w-full md:w-80">
+        <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input
+          type="text"
+          id="search-input"
+          value={q}
+          placeholder="Buscar por marca, modelo o IMEI..."
+          class="input-base pl-10 h-10"
+        />
+      </div>
+    </div>
+
+    <div class="flex justify-between items-center text-sm text-[var(--color-text-secondary)]">
+      <p>{total} {total === 1 ? 'resultado' : 'resultados'}</p>
+    </div>
+
+    <div class="card-surface overflow-hidden">
+      {bams.length > 0 ? (
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Marca / Modelo</th>
+                <th>IMEI</th>
+                <th>Estado</th>
+                <th>Observaciones</th>
+                <th>Fecha Ingreso</th>
+                <th class="text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {bams.map((b) => (
+                <tr>
+                  <td>
+                    <div class="flex flex-col">
+                      <span class="font-bold text-[var(--color-text-primary)]">{b.marca}</span>
+                      <span class="text-xs text-[var(--color-text-secondary)]">{b.modelo}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <code class="text-xs font-mono bg-[var(--color-bg-elevated)] px-1.5 py-0.5 rounded border border-[var(--color-border-subtle)]">
+                      {b.imei}
+                    </code>
+                  </td>
+                  <td>
+                    <Badge status={b.estado} />
+                  </td>
+                  <td>
+                    <p class="max-w-xs truncate text-xs text-[var(--color-text-secondary)]" title={b.observaciones}>
+                      {b.observaciones || '—'}
+                    </p>
+                  </td>
+                  <td>
+                    <span class="text-xs text-[var(--color-text-muted)]">
+                      {formatDate(b.createdAt)}
+                    </span>
+                  </td>
+                  <td class="text-right">
+                    <div class="flex justify-end gap-1">
+                      <a href={`/bam/${b.id}?edit=true`} class="action-btn" title="Editar">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                      </a>
+                      <button 
+                        class="action-btn action-btn-danger delete-btn" 
+                        title="Eliminar"
+                        data-id={b.id}
+                        data-name={`${b.marca} ${b.modelo}`}
+                      >
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div class="py-16 text-center space-y-3">
+          <div class="w-16 h-16 bg-[var(--color-bg-elevated)] rounded-2xl flex items-center justify-center mx-auto text-[var(--color-text-muted)]">
+            <svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/><line x1="8" y1="16" x2="8.01" y2="16"/><line x1="8" y1="20" x2="8.01" y2="20"/><line x1="12" y1="18" x2="12.01" y2="18"/><line x1="12" y1="22" x2="12.01" y2="22"/><line x1="16" y1="16" x2="16.01" y2="16"/><line x1="16" y1="20" x2="16.01" y2="20"/></svg>
+          </div>
+          <p class="font-medium text-[var(--color-text-secondary)]">No se encontraron dispositivos BAM</p>
+          {(q || estado) && <Button href="/bam" variant="outline" size="sm">Limpiar búsqueda</Button>}
+        </div>
+      )}
+    </div>
+  </main>
+</BaseLayout>
+
+<script>
+  // Search
+  const searchInput = document.getElementById('search-input') as HTMLInputElement;
+  searchInput?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('q', searchInput.value);
+      window.location.href = url.toString();
+    }
+  });
+
+  // Filter pills
+  document.querySelectorAll('#filter-pills .filter-pill').forEach((pill) => {
+    pill.addEventListener('click', () => {
+      const estado = (pill as HTMLElement).dataset.estado ?? '';
+      const url = new URL(window.location.href);
+      if (estado) {
+        url.searchParams.set('estado', estado);
+      } else {
+        url.searchParams.delete('estado');
+      }
+      window.location.href = url.toString();
+    });
+  });
+
+  // Delete logic
+  document.querySelectorAll('.delete-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const el = btn as HTMLElement;
+      const id = el.dataset.id;
+      const name = el.dataset.name;
+
+      if (!id) return;
+
+      const confirmed = await (window as any).confirmAction({
+        title: '¿Eliminar BAM?',
+        message: `¿Estás seguro que deseas eliminar el equipo ${name}? Esta acción no se puede deshacer.`,
+        confirmText: 'Sí, eliminar',
+        cancelText: 'Cancelar',
+        variant: 'danger'
+      });
+
+      if (confirmed) {
+        try {
+          const res = await fetch(`/api/bam/${id}`, { method: 'DELETE' });
+          const json = await res.json();
+
+          if (json.success) {
+            (window as any).showToast('BAM eliminada exitosamente', 'success');
+            setTimeout(() => window.location.reload(), 1000);
+          } else {
+            (window as any).showToast(json.error?.message || 'Error al eliminar', 'error');
+          }
+        } catch {
+          (window as any).showToast('Error de conexión', 'error');
+        }
+      }
+    });
+  });
+</script>
+
+<style>
+  .action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.5rem;
+    color: var(--color-text-secondary);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .action-btn:hover {
+    background: var(--color-bg-elevated);
+    color: var(--color-text-primary);
+  }
+  .action-btn-danger:hover {
+    background: #fee2e2;
+    color: #dc2626;
+  }
+</style>

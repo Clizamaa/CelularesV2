@@ -7,12 +7,14 @@ export const GET: APIRoute = async ({ url }) => {
   try {
     const q = url.searchParams.get('q') ?? '';
     const estado = url.searchParams.get('estado') ?? undefined;
+    const marca = url.searchParams.get('marca') ?? undefined;
+    const modelo = url.searchParams.get('modelo') ?? undefined;
     const page = Number(url.searchParams.get('page') ?? 1);
     const limit = Number(url.searchParams.get('limit') ?? 10);
     const sort = url.searchParams.get('sort') ?? 'createdAt';
     const order = url.searchParams.get('order') ?? 'desc';
 
-    const result = await getCelulares({ q, estado, page, limit, sort, order });
+    const result = await getCelulares({ q, estado, marca, modelo, page, limit, sort, order });
 
     return successResponse(result.data, {
       total: result.total,

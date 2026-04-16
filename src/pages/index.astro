@@ -9,203 +9,123 @@ import { formatDate } from '@/lib/utils/format';
 // KPI Data
 const [
   totalCelulares,
-  disponibles,
-  asignados,
-  mantenimiento,
-  enBaja,
+  celularesDisponibles,
+  celularesAsignados,
+  celularesMantenimiento,
+  celularesEnBaja,
+  totalBAM,
+  bamDisponibles,
+  bamAsignados,
+  bamEnBaja,
   totalSimcards,
   simDisponibles,
   totalComputadores,
-  ultimasAsignaciones,
 ] = await Promise.all([
-  prisma.celular.count(),
+  prisma.celular.count({ where: { NOT: { estado: 'BAJA' } } }),
   prisma.celular.count({ where: { estado: 'DISPONIBLE' } }),
   prisma.celular.count({ where: { estado: 'ASIGNADO' } }),
   prisma.celular.count({ where: { estado: 'MANTENIMIENTO' } }),
   prisma.celular.count({ where: { estado: 'BAJA' } }),
+  prisma.bAM.count({ where: { NOT: { estado: 'BAJA' } } }),
+  prisma.bAM.count({ where: { estado: 'DISPONIBLE' } }),
+  prisma.bAM.count({ where: { estado: 'ASIGNADO' } }),
+  prisma.bAM.count({ where: { estado: 'BAJA' } }),
   prisma.simcard.count(),
   prisma.simcard.count({ where: { estado: 'DISPONIBLE' } }),
   prisma.computador.count(),
-  prisma.asignacion.findMany({
-    where: { activa: true },
-    take: 5,
-    orderBy: { fechaAsignacion: 'desc' },
-    include: { celular: true, simcard: true },
-  }),
 ]);
 
-const kpis = [
+const categories = [
   {
-    label: 'Total Celulares',
-    value: totalCelulares,
-    icon: '<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>',
+    title: 'Celulares',
+    icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>',
     color: 'var(--color-accent)',
-    bg: 'oklch(from var(--color-accent) l c h / 10%)',
+    stats: [
+      { label: 'Activos', value: totalCelulares, sub: 'Total' },
+      { label: 'Disponibles', value: celularesDisponibles, color: 'var(--color-status-disponible)' },
+      { label: 'Asignados', value: celularesAsignados, color: 'var(--color-status-asignado)' },
+      { label: 'Mantenimiento', value: celularesMantenimiento, color: 'var(--color-status-mantenimiento)' },
+      { label: 'Bajas', value: celularesEnBaja, color: 'var(--color-danger)' },
+    ]
   },
   {
-    label: 'Disponibles',
-    value: disponibles,
-    icon: '<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
-    color: 'var(--color-status-disponible)',
-    bg: 'oklch(from var(--color-status-disponible) l c h / 10%)',
+    title: 'Banda Ancha Móvil',
+    icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 4v4h6V4"/><line x1="9" y1="12" x2="15" y2="12"/></svg>',
+    color: 'var(--color-accent-teal)',
+    stats: [
+      { label: 'Activos', value: totalBAM, sub: 'Total' },
+      { label: 'Disponibles', value: bamDisponibles, color: 'var(--color-status-disponible)' },
+      { label: 'Asignados', value: bamAsignados, color: 'var(--color-status-asignado)' },
+      { label: 'Bajas', value: bamEnBaja, color: 'var(--color-danger)' },
+    ]
   },
   {
-    label: 'Asignados',
-    value: asignados,
-    icon: '<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>',
-    color: 'var(--color-status-asignado)',
-    bg: 'oklch(from var(--color-status-asignado) l c h / 10%)',
-  },
-  {
-    label: 'Mantenimiento',
-    value: mantenimiento,
-    icon: '<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',
-    color: 'var(--color-status-mantenimiento)',
-    bg: 'oklch(from var(--color-status-mantenimiento) l c h / 10%)',
-  },
+    title: 'Infraestructura SIM & Otros',
+    icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>',
+    color: 'var(--color-accent-blue)',
+    stats: [
+      { label: 'Simcards', value: totalSimcards, sub: `${simDisponibles} dispon.` },
+      { label: 'Computadores', value: totalComputadores, sub: 'All In One' },
+    ]
+  }
+];
+
+const quickActions = [
+  { label: 'Nuevo Celular', href: '/celulares/nuevo', icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>', color: 'var(--color-accent)' },
+  { label: 'Nueva BAM', href: '/bam/nuevo', icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>', color: 'var(--color-accent-teal)' },
+  { label: 'Simcards', href: '/simcards', icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 4v4h6V4"/><line x1="9" y1="12" x2="15" y2="12"/></svg>', color: 'var(--color-accent-blue)' },
+  { label: 'Mantenedores', href: '/mantenedores', icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>', color: 'var(--color-text-muted)' },
 ];
 ---
 
 <BaseLayout title="Dashboard — CelularES">
   <Header title="Dashboard" />
 
-  <main class="p-6 lg:p-8 space-y-8 animate-fade-in">
-    <!-- KPI Cards -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6">
-      {kpis.map((kpi, i) => (
-        <div class="card-surface p-5 lg:p-6 animate-slide-up" style={`animation-delay: ${i * 60}ms`}>
-          <div class="flex items-start justify-between">
-            <div class="space-y-2">
-              <p class="text-sm text-[var(--color-text-secondary)]">{kpi.label}</p>
-              <p class="text-3xl lg:text-4xl font-display font-bold" style={`color: ${kpi.color}`}>
-                {kpi.value}
-              </p>
-            </div>
-            <div
-              class="flex items-center justify-center w-12 h-12 rounded-xl"
-              style={`background: ${kpi.bg}; color: ${kpi.color}`}
-              set:html={kpi.icon}
-            />
-          </div>
+  <main class="p-6 lg:p-8 space-y-10 animate-fade-in">
+    <!-- Top Compact Quick Actions -->
+    <div class="flex flex-wrap items-center gap-3 pb-2">
+        <span class="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] border-r border-[var(--color-border-subtle)] pr-4 mr-1">Accesos Rápidos</span>
+        <div class="flex flex-wrap gap-2">
+            {quickActions.map(action => (
+                <a href={action.href} class="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] hover:border-[oklch(from_var(--color-text-primary)_l_c_h_/_20%)] hover:translate-y-[-1px] transition-all duration-300 group shadow-sm">
+                    <div class="flex items-center justify-center w-7 h-7 rounded-lg text-white shadow-sm" style={`background-color: ${action.color}`} set:html={action.icon} />
+                    <span class="text-xs font-bold text-[var(--color-text-primary)] group-hover:text-[var(--color-accent)] transition-colors">{action.label}</span>
+                </a>
+            ))}
         </div>
-      ))}
     </div>
 
-    <!-- Quick Stats Row -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
-      <div class="card-surface p-5">
-        <div class="flex items-center gap-3 mb-3">
-          <div class="flex items-center justify-center w-9 h-9 rounded-lg bg-[oklch(from_var(--color-accent-teal)_l_c_h_/_10%)]">
-            <svg class="w-4.5 h-4.5 text-[var(--color-accent-teal)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 4v4h6V4"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
-          </div>
-          <div>
-            <p class="text-sm font-medium text-[var(--color-text-primary)]">SIM Cards</p>
-            <p class="text-xs text-[var(--color-text-muted)]">Total en el sistema</p>
-          </div>
-        </div>
-        <div class="flex items-end justify-between">
-          <p class="text-2xl font-display font-bold text-[var(--color-accent-teal)]">{totalSimcards}</p>
-          <p class="text-xs text-[var(--color-text-secondary)]">{simDisponibles} disponibles</p>
-        </div>
-      </div>
+    <!-- Categorized Sections -->
+    <div class="space-y-10">
+      {categories.map((cat, catIdx) => (
+        <section class="space-y-5">
+           <div class="flex items-center gap-3">
+              <div class="flex items-center justify-center w-10 h-10 rounded-2xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] shadow-sm" style={`color: ${cat.color}`} set:html={cat.icon} />
+              <h2 class="text-xl font-display font-bold text-[var(--color-text-primary)]">{cat.title}</h2>
+              <div class="h-px flex-1 bg-gradient-to-r from-[var(--color-border-subtle)] to-transparent ml-2"></div>
+           </div>
 
-      <div class="card-surface p-5">
-        <div class="flex items-center gap-3 mb-3">
-          <div class="flex items-center justify-center w-9 h-9 rounded-lg bg-[oklch(from_sky_500_l_c_h_/_10%)]">
-            <svg class="w-4.5 h-4.5 text-sky-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-          </div>
-          <div>
-            <p class="text-sm font-medium text-[var(--color-text-primary)]">Computadores</p>
-            <p class="text-xs text-[var(--color-text-muted)]">All In One (AIO)</p>
-          </div>
-        </div>
-        <div class="flex items-end justify-between">
-          <p class="text-2xl font-display font-bold text-sky-500">{totalComputadores}</p>
-          <a href="/computadores" class="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)] hover:text-sky-500 transition-colors">Ver todos →</a>
-        </div>
-      </div>
-
-      <div class="card-surface p-5">
-        <div class="flex items-center gap-3 mb-3">
-          <div class="flex items-center justify-center w-9 h-9 rounded-lg bg-[oklch(from_var(--color-danger)_l_c_h_/_10%)]">
-            <svg class="w-4.5 h-4.5 text-[var(--color-danger)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-          </div>
-          <div>
-            <p class="text-sm font-medium text-[var(--color-text-primary)]">Dados de Baja</p>
-            <p class="text-xs text-[var(--color-text-muted)]">Equipos inactivos</p>
-          </div>
-        </div>
-        <p class="text-2xl font-display font-bold text-[var(--color-danger)]">{enBaja}</p>
-      </div>
-
-      <div class="card-surface p-5 flex flex-col justify-between">
-        <p class="text-sm font-medium text-[var(--color-text-secondary)] mb-3">Acciones Rápidas</p>
-        <div class="flex flex-col gap-2">
-          <Button href="/computadores/nuevo" variant="primary" size="sm">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Nuevo AIO
-          </Button>
-          <Button href="/celulares/nuevo" variant="secondary" size="sm">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Nuevo Celular
-          </Button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Last Assignments Table -->
-    <div class="card-surface overflow-hidden">
-      <div class="flex items-center justify-between p-5 pb-0">
-        <div>
-          <h2 class="text-lg font-display font-bold">Últimas Asignaciones</h2>
-          <p class="text-sm text-[var(--color-text-secondary)] mt-0.5">Asignaciones activas más recientes</p>
-        </div>
-        <Button href="/celulares" variant="ghost" size="sm">Ver todo</Button>
-      </div>
-
-      {ultimasAsignaciones.length > 0 ? (
-        <div class="overflow-x-auto mt-4">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Equipo</th>
-                <th>Serial</th>
-                <th>SIM</th>
-                <th>Funcionario</th>
-                <th>Fecha</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ultimasAsignaciones.map((a) => (
-                <tr>
-                  <td>
-                    <div class="flex flex-col">
-                      <span class="font-medium text-[var(--color-text-primary)]">{a.celular.marca}</span>
-                      <span class="text-xs text-[var(--color-text-secondary)]">{a.celular.modelo}</span>
-                    </div>
-                  </td>
-                  <td class="font-mono text-sm text-[var(--color-text-secondary)]">{a.celular.serial}</td>
-                  <td>
-                    {a.simcard ? (
-                      <span class="text-sm">{a.simcard.numeroTelefono || a.simcard.numeroSimcard}</span>
-                    ) : (
-                      <span class="text-sm text-[var(--color-text-muted)]">—</span>
+           <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 lg:gap-6">
+              {cat.stats.map((stat, i) => (
+                <div class="group card-surface p-5 lg:p-6 relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:translate-y-[-2px] animate-slide-up" style={`animation-delay: ${(catIdx * 100) + (i * 50)}ms`}>
+                  <div class="absolute top-0 left-0 w-1 h-full opacity-10 group-hover:opacity-100 transition-opacity" style={`background-color: ${stat.color || cat.color}`}></div>
+                  
+                  <div class="space-y-1 relative z-10">
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)] group-hover:text-[var(--color-text-secondary)] transition-colors">{stat.label}</p>
+                    <p class="text-3xl font-display font-black leading-none" style={`color: ${stat.color || 'var(--color-text-primary)'}`}>
+                      {stat.value}
+                    </p>
+                    {stat.sub && (
+                      <p class="text-[10px] text-[var(--color-text-muted)] font-medium mt-1">{stat.sub}</p>
                     )}
-                  </td>
-                  <td class="text-sm">{a.funcionarioNombre || <span class="text-[var(--color-text-muted)]">Sin asignar</span>}</td>
-                  <td class="text-sm text-[var(--color-text-secondary)]">{formatDate(a.fechaAsignacion)}</td>
-                </tr>
+                  </div>
+
+                  <div class="absolute -bottom-2 -right-2 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity rotate-12 scale-150 pointer-events-none" style={`color: ${cat.color}`} set:html={cat.icon} />
+                </div>
               ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <div class="empty-state py-12">
-          <svg class="w-12 h-12 text-[var(--color-text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-          <p class="font-medium">No hay asignaciones activas</p>
-          <p class="text-sm text-[var(--color-text-muted)]">Las asignaciones aparecerán aquí cuando se creen</p>
-        </div>
-      )}
+           </div>
+        </section>
+      ))}
     </div>
   </main>
 </BaseLayout>

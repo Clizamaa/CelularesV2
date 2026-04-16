@@ -57,6 +57,10 @@ const estadoLabels: Record<string, string> = {
     title="Celulares"
     breadcrumbs={[{ label: 'Dashboard', href: '/' }, { label: 'Celulares' }]}
   >
+    <Button id="open-report-modal" variant="outline" size="sm">
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/></svg>
+      Exportar Reporte
+    </Button>
     <Button href="/celulares/nuevo" variant="primary" size="sm">
       <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Nuevo Celular
@@ -212,32 +216,79 @@ const estadoLabels: Record<string, string> = {
         </div>
       )}
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div class="flex items-center justify-between px-5 py-4 border-t border-[var(--color-border-subtle)]">
-          <p class="text-sm text-[var(--color-text-secondary)]">
-            Página {page} de {totalPages}
-          </p>
-          <div class="pagination" id="pagination">
-            <button class="pagination-btn" data-page={page - 1} disabled={page <= 1}>
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+      <!-- Pagination -->
+    {totalPages > 1 && (
+      <div class="flex items-center justify-between px-5 py-4 border-t border-[var(--color-border-subtle)]">
+        <p class="text-sm text-[var(--color-text-secondary)]">
+          Página {page} de {totalPages}
+        </p>
+        <div class="pagination" id="pagination">
+          <button class="pagination-btn" data-page={page - 1} disabled={page <= 1}>
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+            <button
+              class={`pagination-btn ${p === page ? 'active' : ''}`}
+              data-page={p}
+            >
+              {p}
             </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-              <button
-                class={`pagination-btn ${p === page ? 'active' : ''}`}
-                data-page={p}
-              >
-                {p}
-              </button>
-            ))}
-            <button class="pagination-btn" data-page={page + 1} disabled={page >= totalPages}>
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
-            </button>
-          </div>
+          ))}
+          <button class="pagination-btn" data-page={page + 1} disabled={page >= totalPages}>
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
         </div>
-      )}
+      </div>
+    )}
+  </div>
+
+  <!-- Report Modal -->
+  <div id="report-modal" class="modal-overlay hidden">
+    <div class="modal-content max-w-lg">
+      <div class="p-6 border-b border-[var(--color-border-subtle)] flex items-center justify-between">
+        <h3 class="text-lg font-bold">Personalizar Reporte</h3>
+        <button id="close-report-modal" class="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="p-6 space-y-5">
+        <p class="text-xs text-[var(--color-text-secondary)] font-medium uppercase tracking-wider">Columnas del archivo</p>
+        
+        <div class="grid grid-cols-2 gap-3">
+          {[
+            { id: 'marca', label: 'Marca' },
+            { id: 'modelo', label: 'Modelo' },
+            { id: 'serial', label: 'Serial' },
+            { id: 'imei', label: 'IMEI' },
+            { id: 'estado', label: 'Estado' },
+            { id: 'observaciones', label: 'Observaciones' },
+            { id: 'createdAt', label: 'Fecha Ingreso' },
+            { id: 'funcionario', label: 'Nombre Funcionario' },
+            { id: 'cargo', label: 'Cargo Funcionario' },
+            { id: 'dependencia', label: 'Dependencia Funcionario' },
+            { id: 'simcard', label: 'Número SIM' },
+            { id: 'telefono', label: 'Número Teléfono' },
+          ].map(col => (
+            <label class="flex items-center gap-3 p-3 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-elevated)] cursor-pointer hover:border-[var(--color-accent)] hover:bg-[oklch(from_var(--color-accent)_l_c_h_/_3%)] transition-all group">
+              <input type="checkbox" class="report-col-checkbox hidden" value={col.id} checked />
+              <div class="w-5 h-5 rounded-md border-2 border-[var(--color-border-subtle)] flex items-center justify-center group-hover:border-[var(--color-accent)] checkbox-custom transition-all">
+                <svg class="w-3.5 h-3.5 text-white opacity-0 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <span class="text-sm font-medium text-[var(--color-text-secondary)] group-hover:text-[var(--color-text-primary)] transition-colors">{col.label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+      <div class="p-6 bg-[oklch(from_var(--color-accent)_l_c_h_/_3%)] flex gap-3 justify-end rounded-b-2xl border-t border-[var(--color-border-subtle)]">
+        <button id="cancel-report" class="btn-outline py-2.5 px-6 rounded-xl text-sm font-bold uppercase tracking-wider hover:bg-[var(--color-bg-base)] transition-all">Cancelar</button>
+        <button id="confirm-report" class="btn-primary py-2.5 px-6 rounded-xl text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Descargar CSV
+        </button>
+      </div>
     </div>
-  </main>
+  </div>
+</main>
 </BaseLayout>
 
 <style>
@@ -262,6 +313,68 @@ const estadoLabels: Record<string, string> = {
     background: oklch(from var(--color-danger) l c h / 12%);
     color: var(--color-danger);
   }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: oklch(0% 0 0 / 60%);
+    backdrop-filter: blur(8px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    transition: all 0.3s;
+  }
+  .modal-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+    display: none;
+  }
+  .modal-content {
+    background: var(--color-bg-surface);
+    width: 100%;
+    border-radius: 1.5rem;
+    border: 1px solid var(--color-border-subtle);
+    box-shadow: 0 25px 50px -12px oklch(0% 0 0 / 50%);
+    animation: modalScaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  @keyframes modalScaleUp {
+    from { opacity: 0; transform: scale(0.95) translateY(10px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .checkbox-custom {
+    background: var(--color-bg-base);
+  }
+  .report-col-checkbox:checked + .checkbox-custom {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    box-shadow: 0 0 12px var(--color-accent-glow);
+  }
+  .report-col-checkbox:checked + .checkbox-custom svg {
+    opacity: 1;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--color-accent), var(--color-accent-teal));
+    color: white;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 12px var(--color-accent-glow);
+  }
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px var(--color-accent-glow);
+  }
+  .btn-outline {
+    background: transparent;
+    border: 1px solid var(--color-border-subtle);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+  }
 </style>
 
 <script>
@@ -285,6 +398,122 @@ const estadoLabels: Record<string, string> = {
       }, 400);
     });
   }
+  
+  // Report Generation
+  const openReportBtn = document.getElementById('open-report-modal');
+  const reportModal = document.getElementById('report-modal');
+  const closeReportBtn = document.getElementById('close-report-modal');
+  const cancelReportBtn = document.getElementById('cancel-report');
+  const confirmReportBtn = document.getElementById('confirm-report') as HTMLButtonElement;
+
+  openReportBtn?.addEventListener('click', () => {
+    reportModal?.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  });
+
+  const closeModal = () => {
+    reportModal?.classList.add('hidden');
+    document.body.style.overflow = '';
+  };
+
+  closeReportBtn?.addEventListener('click', closeModal);
+  cancelReportBtn?.addEventListener('click', closeModal);
+
+  // Close on outside click
+  reportModal?.addEventListener('click', (e) => {
+    if (e.target === reportModal) closeModal();
+  });
+
+  confirmReportBtn?.addEventListener('click', async () => {
+    const selectedCols = Array.from(document.querySelectorAll('.report-col-checkbox:checked'))
+      .map((cb: any) => ({ 
+        id: cb.value, 
+        label: cb.closest('label').querySelector('span').textContent 
+      }));
+
+    if (selectedCols.length === 0) {
+      alert('Por favor selecciona al menos una columna');
+      return;
+    }
+
+    confirmReportBtn.disabled = true;
+    confirmReportBtn.innerHTML = `
+      <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+      Generando...
+    `;
+
+    try {
+      // Get current filters from URL
+      const currentUrl = new URL(window.location.href);
+      const params = new URLSearchParams(currentUrl.search);
+      params.set('limit', '5000'); // Get many records for the report
+      
+      const response = await fetch(`/api/celulares?${params.toString()}`);
+      const resJson = await response.json();
+      
+      if (!resJson.success) throw new Error('Error al obtener datos');
+
+      const data = resJson.data;
+      
+      // Generate CSV
+      // Headers
+      const csvRows = [selectedCols.map(c => `"${c.label}"`).join(',')];
+
+      data.forEach((row: any) => {
+        const values = selectedCols.map(col => {
+          let val = '';
+          const id = col.id;
+          
+          if (id === 'createdAt') {
+            val = new Date(row[id]).toLocaleDateString('es-CL');
+          } else if (id === 'funcionario') {
+            val = row.asignacion?.funcionarioNombre || 'No asignado';
+          } else if (id === 'cargo') {
+            val = row.asignacion?.funcionarioCargo || '';
+          } else if (id === 'dependencia') {
+            val = row.asignacion?.funcionarioDependencia || '';
+          } else if (id === 'simcard') {
+            val = row.asignacion?.simcard?.numeroSimcard || 'Sin SIM';
+          } else if (id === 'telefono') {
+            val = row.asignacion?.simcard?.numeroTelefono || '';
+          } else {
+            val = row[id] || '';
+          }
+          
+          // Escape quotes
+          const escaped = ('' + val).replace(/"/g, '""');
+          return `"${escaped}"`;
+        });
+        csvRows.push(values.join(','));
+      });
+
+      const csvContent = "\uFEFF" + csvRows.join('\n'); // Add BOM for Excel UTF-8
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `reporte_celulares_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      closeModal();
+    } catch (err) {
+      console.error(err);
+      alert('Error al generar el reporte');
+    } finally {
+      confirmReportBtn.disabled = false;
+      confirmReportBtn.innerHTML = `
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Descargar CSV
+      `;
+    }
+  });
+
+  // Keep existing scripts...
+
 
   // Barcode scan → search
   function handleScanSearch(value: string) {
