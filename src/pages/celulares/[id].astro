@@ -43,6 +43,23 @@ const marcasJson = JSON.stringify(marcasDB.map(m => ({
   nombre: m.nombre,
   modelos: m.modelos.map(mod => ({ id: mod.id, nombre: mod.nombre })),
 })));
+
+// Obtener SIM cards disponibles para asignar
+const simcardsDisponibles = await prisma.simcard.findMany({
+  where: {
+    OR: [
+      { estado: 'DISPONIBLE' },
+      { id: celular.asignacion?.simcardId || 'none' },
+      {
+        AND: [
+          { asignacion: null },
+          { asignacionBAM: null }
+        ]
+      }
+    ]
+  },
+  orderBy: { numeroTelefono: 'asc' }
+});
 ---
 
 <BaseLayout title={`${celular.marca} ${celular.modelo} — CelularES`}>
@@ -118,6 +135,17 @@ const marcasJson = JSON.stringify(marcasDB.map(m => ({
                 <option value="ASIGNADO" selected={celular.estado === 'ASIGNADO'}>Asignado</option>
                 <option value="MANTENIMIENTO" selected={celular.estado === 'MANTENIMIENTO'}>Mantenimiento</option>
                 <option value="BAJA" selected={celular.estado === 'BAJA'}>Baja</option>
+              </select>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label for="simcardId" class="text-sm font-medium text-[var(--color-text-secondary)]">SIM Card</label>
+              <select id="simcardId" name="simcardId" class="input-base">
+                <option value="">— Sin SIM asociada —</option>
+                {simcardsDisponibles.map((s) => (
+                  <option value={s.id} selected={celular.asignacion?.simcardId === s.id}>
+                    {s.numeroTelefono || s.numeroSimcard} {s.operador ? `(${s.operador})` : ''}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -333,6 +361,7 @@ const marcasJson = JSON.stringify(marcasDB.map(m => ({
         imei: formData.get('imei'),
         estado: formData.get('estado'),
         observaciones: formData.get('observaciones') || '',
+        simcardId: formData.get('simcardId') || '',
       };
 
       const res = await fetch(`/api/celulares/${celularId}`, {

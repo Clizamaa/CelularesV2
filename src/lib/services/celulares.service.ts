@@ -110,15 +110,98 @@ export async function createCelular(input: {
   }
 }
 
-export async function updateCelular(id: string, data: Prisma.CelularUpdateInput) {
-  return prisma.celular.update({
-    where: { id },
-    data,
+export async function updateCelular(id: string, data: any) {
+  const { simcardId, ...celularData } = data;
+
+  return await globalPrisma.$transaction(async (tx) => {
+    // 1. Actualizar datos básicos del celular
+    const updated = await tx.celular.update({
+      where: { id },
+      data: celularData,
+    });
+
+    // 2. Manejar asignación de SIM si se proporcionó simcardId
+    // simcardId === null o "" significa desvincular SIM
+    if (simcardId !== undefined) {
+      const activeAsig = await tx.asignacion.findFirst({
+        where: { celularId: id, activa: true },
+      });
+
+      if (simcardId) {
+        // Queremos asignar una SIM específica
+        if (activeAsig) {
+          // Si ya tenía otra SIM, liberamos la anterior
+          if (activeAsig.simcardId && activeAsig.simcardId !== simcardId) {
+            await tx.simcard.update({
+              where: { id: activeAsig.simcardId },
+              data: { estado: 'DISPONIBLE' },
+            });
+          }
+
+          // Actualizamos la asignación actual
+          await tx.asignacion.update({
+            where: { id: activeAsig.id },
+            data: { simcardId },
+          });
+        } else {
+          // No hay asignación activa, creamos una para vincular la SIM al equipo
+          await tx.asignacion.create({
+            data: {
+              celularId: id,
+              simcardId,
+              activa: true,
+            },
+          });
+        }
+
+        // Marcamos la nueva SIM como ASIGNADA
+        await tx.simcard.update({
+          where: { id: simcardId },
+          data: { estado: 'ASIGNADA' },
+        });
+      } else {
+        // Se envió simcardId vacío o null -> Desvincular SIM actual
+        if (activeAsig?.simcardId) {
+          await tx.simcard.update({
+            where: { id: activeAsig.simcardId },
+            data: { estado: 'DISPONIBLE' },
+          });
+
+          await tx.asignacion.update({
+            where: { id: activeAsig.id },
+            data: { simcardId: null },
+          });
+        }
+      }
+    }
+
+    return updated;
   });
 }
 
 export async function deleteCelular(id: string) {
-  // Eliminar asignaciones relacionadas primero
-  await prisma.asignacion.deleteMany({ where: { celularId: id } });
-  return prisma.celular.delete({ where: { id } });
+  return await globalPrisma.$transaction(async (tx) => {
+    // 1. Encontrar todas las asignaciones para liberar las SIMs
+    const asignaciones = await tx.asignacion.findMany({
+      where: { celularId: id },
+      select: { simcardId: true },
+    });
+
+    const simcardIds = asignaciones
+      .map((a) => a.simcardId)
+      .filter((sid): sid is string => !!sid);
+
+    if (simcardIds.length > 0) {
+      await tx.simcard.updateMany({
+        where: { id: { in: simcardIds } },
+        data: { estado: 'DISPONIBLE' },
+      });
+    }
+
+    // 2. Eliminar asignaciones relacionadas
+    await tx.asignacion.deleteMany({ where: { celularId: id } });
+
+    // 3. Eliminar el celular
+    return await tx.celular.delete({ where: { id } });
+  });
 }

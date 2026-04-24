@@ -7,6 +7,7 @@ export const celularSchema = z.object({
   imei:          z.string().regex(/^\d{15}$/, 'El IMEI debe tener exactamente 15 dígitos'),
   observaciones: z.string().max(500).optional().default(''),
   estado:        z.enum(['DISPONIBLE', 'ASIGNADO', 'MANTENIMIENTO', 'BAJA']).default('DISPONIBLE'),
+  simcardId:     z.string().uuid().optional().nullable().or(z.literal('')),
 });
 
 export const celularUpdateSchema = celularSchema.partial();
